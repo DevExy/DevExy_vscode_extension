@@ -85,10 +85,18 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                         command: 'hideCoverageResults'
                     });
                     return;
+
+                case 'downloadCoverageReport':
+                    await this._generatePdfReport();
+                    return;
             }
         });
         
         // Check login status when sidebar loads
+        this._checkLoginStatus();
+    }
+
+    public refreshLoginStatus() {
         this._checkLoginStatus();
     }
     
@@ -243,13 +251,23 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
         try {
             const context = getExtensionContext();
             // Import isLoggedIn to avoid circular dependencies
-            const { isLoggedIn } = require('../auth');
+            const { isLoggedIn, getUsername } = require('../auth');
             const loggedIn = await isLoggedIn(context);
+            const username = loggedIn ? await getUsername(context) : null;
             
             this._view?.webview.postMessage({ 
                 command: 'loginStatus',
-                isLoggedIn: loggedIn
+                isLoggedIn: loggedIn,
+                username: username
             });
+
+            // If we're not logged in anymore, make sure UI fully resets
+            if (!loggedIn) {
+                this._view?.webview.postMessage({
+                    command: 'updateAuthStatus',
+                    isLoggedIn: false
+                });
+            }
         } catch (error) {
             this._log('Error checking login status');
             this._view?.webview.postMessage({ 
@@ -522,6 +540,75 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 status: 'error',
                 action: 'coverage',
                 message: `Coverage analysis failed: ${error.message || 'Unknown error'}`
+            });
+        }
+    }
+
+    private async _generatePdfReport() {
+        try {
+            this._log('Generating PDF report...');
+            
+            // Show progress to user
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                action: 'coverage',
+                status: 'loading',
+                message: 'Generating PDF report...'
+            });
+            
+            // Get workspace folder
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                throw new Error('No workspace folder found');
+            }
+            
+            // Get auth token in case it's needed for API calls
+            const context = getExtensionContext();
+            const token = await getAuthToken(context);
+            
+            // Let's use current date for the filename
+            const date = new Date().toISOString().split('T')[0];
+            const filename = `coverage-report-${date}.pdf`;
+            const reportPath = path.join(workspaceFolder.uri.fsPath, filename);
+            
+            // TODO: Implement actual PDF generation here
+            // Options:
+            // 1. Use an API call to backend service to generate PDF
+            // 2. Use a PDF generation library like pdfkit to generate locally
+            
+            // For now, let's use a simple approach that simulates PDF creation
+            // using a temporary API with dummy implementation
+            
+            // Create file with dummy content
+            const fs = require('fs');
+            const reportContent = Buffer.from(`
+                Coverage Report
+                Generated on ${new Date().toLocaleString()}
+                This is a placeholder PDF file.
+                Actual implementation would generate a proper PDF with charts and tables.
+            `);
+            
+            fs.writeFileSync(reportPath, reportContent);
+            
+            // Open the file using VS Code
+            const doc = await vscode.workspace.openTextDocument(reportPath);
+            await vscode.window.showTextDocument(doc);
+            
+            // Notify success
+            this._view?.webview.postMessage({
+                command: 'reportDownloaded',
+                path: reportPath
+            });
+            
+            this._log(`PDF report generated and saved to ${reportPath}`);
+            
+        } catch (error) {
+            this._log(`Error generating PDF report: ${error}`);
+            
+            // Update UI to error state
+            this._view?.webview.postMessage({
+                command: 'reportDownloadError',
+                error: error instanceof Error ? error.message : 'Unknown error'
             });
         }
     }

@@ -420,3 +420,110 @@ footer {
     background-color: rgba(255, 193, 7, 0.1);
     border-left: 3px solid var(--warning-color);
 }
+
+/* Adding styles for visualization and download button */
+
+.visualization-section {
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    padding: 12px;
+    background-color: var(--vscode-editor-background);
+}
+
+.visualization-section h4 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--brand-color);
+}
+
+.chart-container {
+    overflow-x: auto;
+    margin-bottom: 10px;
+}
+
+.coverage-chart-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.coverage-chart-table th,
+.coverage-chart-table td {
+    padding: 6px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.coverage-chart-table th {
+    font-weight: bold;
+    color: var(--brand-color);
+}
+
+.missed-cases-categories {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 11px;
+}
+
+.missed-cases-categories li {
+    margin-bottom: 2px;
+}
+
+.file-hotspots {
+    margin-bottom: 15px;
+}
+
+.file-hotspots h5 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.hotspots-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.hotspots-list li {
+    margin-bottom: 4px;
+    font-size: 12px;
+}
+
+.hotspot-score {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    margin-right: 5px;
+}
+
+.download-button {
+    background-color: var(--brand-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+}
+
+.download-button::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 8.9L4.5 5.4 3.8 6.1 8 10.3l4.2-4.2-.7-.7L8 8.9z'/%3E%3Cpath d='M13 9v2H3V9H2v3h12V9h-1z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.download-button:hover {
+    background-color: var(--brand-color);
+}

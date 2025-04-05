@@ -34,10 +34,19 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('devexy.logout', async () => {
             try {
                 await logout(context);
+                // Add this line to refresh sidebar state after logout
+                vscode.commands.executeCommand('devexy.refreshSidebarAfterLogout');
                 vscode.window.showInformationMessage('Successfully logged out from DevExy');
             } catch (error) {
                 vscode.window.showErrorMessage(`Error during logout: ${error instanceof Error ? error.message : String(error)}`);
             }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('devexy.refreshSidebarAfterLogout', () => {
+            // This will trigger the sidebar to check login status and show the login form
+            vscode.commands.executeCommand('workbench.view.extension.devexy-sidebar-view');
         })
     );
     

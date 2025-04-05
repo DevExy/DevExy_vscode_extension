@@ -142,6 +142,9 @@
             username: username,
             password: password
         });
+        
+        // Reset password field for security
+        passwordInput.value = '';
     }
 
     function generateTests(type) {
@@ -173,12 +176,50 @@
         });
     }
 
+    // Download report as PDF
+    function downloadReportAsPDF() {
+        vscode.postMessage({
+            command: 'downloadCoverageReport'
+        });
+    }
+
     // Handle messages from the extension
     function handleMessage(message) {
         switch (message.command) {
             case 'loginStatus':
                 updateAuthStatus(message.isLoggedIn, message.username);
                 isCurrentlyLoggedIn = message.isLoggedIn;
+                
+                // Make sure we show the login form and hide other sections when logged out
+                if (!message.isLoggedIn) {
+                    loginSection.classList.remove('hidden');
+                    generateTestsSection.classList.add('hidden');
+                    coverageAnalysisSection.classList.add('hidden');
+                    testResultsSection.classList.add('hidden');
+                    coverageResultsSection.classList.add('hidden');
+                } else {
+                    loginSection.classList.add('hidden');
+                    generateTestsSection.classList.remove('hidden');
+                    coverageAnalysisSection.classList.remove('hidden');
+                }
+                break;
+            
+            case 'updateStatus':
+                if (message.action === 'login') {
+                    updateLoginStatus(message.status, message.message);
+                    
+                    // If login was successful, update UI accordingly
+                    if (message.status === 'success') {
+                        isCurrentlyLoggedIn = true;
+                        loginSection.classList.add('hidden');
+                        generateTestsSection.classList.remove('hidden');
+                        coverageAnalysisSection.classList.remove('hidden');
+                    }
+                } else if (message.action === 'generateTests') {
+                    updateTestStatus(message.status, message.message);
+                } else if (message.action === 'coverage') {
+                    updateCoverageStatus(message.status, message.message);
+                }
                 break;
             
             case 'updateLoginStatus':
@@ -218,12 +259,6 @@
                 coverageAnalysisSection.classList.remove('hidden');
                 break;
                 
-            case 'updateStatus':
-                if (message.action === 'coverage') {
-                    updateCoverageStatus(message.status, message.message);
-                }
-                break;
-                
             case 'updateProgress':
                 if (message.action === 'coverage') {
                     updateCoverageStatus('loading', message.message);
@@ -234,6 +269,14 @@
                 if (message.action === 'coverage') {
                     updateCoverageStatus('error', message.message);
                 }
+                break;
+                
+            case 'reportDownloaded':
+                updateCoverageStatus('success', 'Report downloaded successfully');
+                break;
+                
+            case 'reportDownloadError':
+                updateCoverageStatus('error', 'Failed to download report: ' + message.error);
                 break;
         }
     }
@@ -382,8 +425,14 @@
         // Display recommendations
         displayRecommendations(results.summary.recommendations);
         
+        // Display visualizations
+        displayVisualizations(results.visualization_data);
+        
         // Display file analysis
         displayFilesAnalysis(results.files_analysis);
+        
+        // Add download report button
+        addDownloadReportButton();
         
         // Clear status message
         coverageStatusMessage.className = 'status-message';
@@ -471,6 +520,306 @@
         });
         
         coverageRecommendations.appendChild(list);
+    }
+
+    function displayVisualizations(visualizationData) {
+        // Clear existing content
+        coverageVisualization.innerHTML = '';
+        
+        if (!visualizationData) {
+            return;
+        }
+        
+        // Create heading
+        const heading = document.createElement('h3');
+        heading.textContent = 'Coverage Visualizations';
+        coverageVisualization.appendChild(heading);
+        
+        // Display summary chart if available
+        if (visualizationData.summary_chart_data && visualizationData.summary_chart_data.length > 0) {
+            displaySummaryChart(visualizationData.summary_chart_data);
+        }
+        
+        // Display improvement potential chart if available
+        if (visualizationData.improvement_potential_chart && visualizationData.improvement_potential_chart.length > 0) {
+            displayImprovementPotentialChart(visualizationData.improvement_potential_chart);
+        }
+        
+        // Display missed test cases chart if available
+        if (visualizationData.missed_test_cases_chart && visualizationData.missed_test_cases_chart.length > 0) {
+            displayMissedTestCasesChart(visualizationData.missed_test_cases_chart);
+        }
+        
+        // Display heatmap data if available
+        if (visualizationData.heatmap_data && visualizationData.heatmap_data.length > 0) {
+            displayHeatmapData(visualizationData.heatmap_data);
+        }
+    }
+    
+    function displaySummaryChart(summaryChartData) {
+        const chartSection = document.createElement('div');
+        chartSection.className = 'visualization-section';
+        
+        const chartTitle = document.createElement('h4');
+        chartTitle.textContent = 'Coverage by File';
+        chartSection.appendChild(chartTitle);
+        
+        // Create chart container
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-container';
+        
+        // Create a table to display the chart data
+        const table = document.createElement('table');
+        table.className = 'coverage-chart-table';
+        
+        // Create header row
+        const headerRow = document.createElement('tr');
+        const headers = ['File', 'Statement', 'Branch', 'Function', 'Condition'];
+        
+        headers.forEach(headerText => {
+            const header = document.createElement('th');
+            header.textContent = headerText;
+            headerRow.appendChild(header);
+        });
+        
+        table.appendChild(headerRow);
+        
+        // Create data rows
+        summaryChartData.forEach(fileData => {
+            const row = document.createElement('tr');
+            
+            const fileCell = document.createElement('td');
+            fileCell.textContent = fileData.filename;
+            row.appendChild(fileCell);
+            
+            const statementCell = document.createElement('td');
+            statementCell.textContent = `${fileData.statement_coverage}%`;
+            statementCell.style.color = getCoverageColor(fileData.statement_coverage);
+            row.appendChild(statementCell);
+            
+            const branchCell = document.createElement('td');
+            branchCell.textContent = `${fileData.branch_coverage}%`;
+            branchCell.style.color = getCoverageColor(fileData.branch_coverage);
+            row.appendChild(branchCell);
+            
+            const functionCell = document.createElement('td');
+            functionCell.textContent = `${fileData.function_coverage}%`;
+            functionCell.style.color = getCoverageColor(fileData.function_coverage);
+            row.appendChild(functionCell);
+            
+            const conditionCell = document.createElement('td');
+            conditionCell.textContent = `${fileData.condition_coverage}%`;
+            conditionCell.style.color = getCoverageColor(fileData.condition_coverage);
+            row.appendChild(conditionCell);
+            
+            table.appendChild(row);
+        });
+        
+        chartContainer.appendChild(table);
+        chartSection.appendChild(chartContainer);
+        coverageVisualization.appendChild(chartSection);
+    }
+    
+    function displayImprovementPotentialChart(improvementData) {
+        const chartSection = document.createElement('div');
+        chartSection.className = 'visualization-section';
+        
+        const chartTitle = document.createElement('h4');
+        chartTitle.textContent = 'Improvement Potential';
+        chartSection.appendChild(chartTitle);
+        
+        // Create chart container
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-container';
+        
+        // Create improvement chart as a table
+        const table = document.createElement('table');
+        table.className = 'coverage-chart-table';
+        
+        // Create header row
+        const headerRow = document.createElement('tr');
+        const headers = ['File', 'Current Coverage', 'Potential Coverage', 'Improvement'];
+        
+        headers.forEach(headerText => {
+            const header = document.createElement('th');
+            header.textContent = headerText;
+            headerRow.appendChild(header);
+        });
+        
+        table.appendChild(headerRow);
+        
+        // Create data rows
+        improvementData.forEach(fileData => {
+            const row = document.createElement('tr');
+            
+            const fileCell = document.createElement('td');
+            fileCell.textContent = fileData.filename;
+            row.appendChild(fileCell);
+            
+            const currentCell = document.createElement('td');
+            currentCell.textContent = `${fileData.current_overall_coverage}%`;
+            currentCell.style.color = getCoverageColor(fileData.current_overall_coverage);
+            row.appendChild(currentCell);
+            
+            const potentialCell = document.createElement('td');
+            potentialCell.textContent = `${fileData.potential_coverage}%`;
+            potentialCell.style.color = getCoverageColor(fileData.potential_coverage);
+            row.appendChild(potentialCell);
+            
+            const improvementCell = document.createElement('td');
+            improvementCell.textContent = `+${fileData.improvement_percentage}%`;
+            improvementCell.style.color = '#66BB6A'; // Green color for improvements
+            row.appendChild(improvementCell);
+            
+            table.appendChild(row);
+        });
+        
+        chartContainer.appendChild(table);
+        chartSection.appendChild(chartContainer);
+        coverageVisualization.appendChild(chartSection);
+    }
+    
+    function displayMissedTestCasesChart(missedCasesData) {
+        const chartSection = document.createElement('div');
+        chartSection.className = 'visualization-section';
+        
+        const chartTitle = document.createElement('h4');
+        chartTitle.textContent = 'Missed Test Cases';
+        chartSection.appendChild(chartTitle);
+        
+        // Create chart container
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-container';
+        
+        // Create missed test cases chart as a table
+        const table = document.createElement('table');
+        table.className = 'coverage-chart-table';
+        
+        // Create header row
+        const headerRow = document.createElement('tr');
+        const headers = ['File', 'Missed Cases Count', 'Categories'];
+        
+        headers.forEach(headerText => {
+            const header = document.createElement('th');
+            header.textContent = headerText;
+            headerRow.appendChild(header);
+        });
+        
+        table.appendChild(headerRow);
+        
+        // Create data rows
+        missedCasesData.forEach(fileData => {
+            const row = document.createElement('tr');
+            
+            const fileCell = document.createElement('td');
+            fileCell.textContent = fileData.filename;
+            row.appendChild(fileCell);
+            
+            const countCell = document.createElement('td');
+            countCell.textContent = fileData.count;
+            row.appendChild(countCell);
+            
+            const categoriesCell = document.createElement('td');
+            const categoriesList = document.createElement('ul');
+            categoriesList.className = 'missed-cases-categories';
+            
+            // Convert categories object to list items
+            Object.entries(fileData.categories).forEach(([category, count]) => {
+                const item = document.createElement('li');
+                item.textContent = `${category}: ${count}`;
+                categoriesList.appendChild(item);
+            });
+            
+            categoriesCell.appendChild(categoriesList);
+            row.appendChild(categoriesCell);
+            
+            table.appendChild(row);
+        });
+        
+        chartContainer.appendChild(table);
+        chartSection.appendChild(chartContainer);
+        coverageVisualization.appendChild(chartSection);
+    }
+    
+    function displayHeatmapData(heatmapData) {
+        const chartSection = document.createElement('div');
+        chartSection.className = 'visualization-section';
+        
+        const chartTitle = document.createElement('h4');
+        chartTitle.textContent = 'Coverage Hotspots';
+        chartSection.appendChild(chartTitle);
+        
+        // Create hotspots container
+        const hotspotsContainer = document.createElement('div');
+        hotspotsContainer.className = 'hotspots-container';
+        
+        // Create heatmap display for each file
+        heatmapData.forEach(fileData => {
+            const fileSection = document.createElement('div');
+            fileSection.className = 'file-hotspots';
+            
+            const fileName = document.createElement('h5');
+            fileName.textContent = fileData.filepath;
+            fileSection.appendChild(fileName);
+            
+            if (fileData.hotspots && fileData.hotspots.length > 0) {
+                const hotspotsList = document.createElement('ul');
+                hotspotsList.className = 'hotspots-list';
+                
+                fileData.hotspots.forEach(hotspot => {
+                    const item = document.createElement('li');
+                    const hotspotScore = document.createElement('span');
+                    hotspotScore.className = 'hotspot-score';
+                    hotspotScore.textContent = hotspot.coverage_score;
+                    hotspotScore.style.backgroundColor = getCoverageColor(hotspot.coverage_score);
+                    
+                    item.appendChild(hotspotScore);
+                    item.appendChild(document.createTextNode(` Line ${hotspot.line}: ${hotspot.description}`));
+                    hotspotsList.appendChild(item);
+                });
+                
+                fileSection.appendChild(hotspotsList);
+            } else {
+                const noHotspots = document.createElement('p');
+                noHotspots.textContent = 'No hotspots found';
+                fileSection.appendChild(noHotspots);
+            }
+            
+            hotspotsContainer.appendChild(fileSection);
+        });
+        
+        chartSection.appendChild(hotspotsContainer);
+        coverageVisualization.appendChild(chartSection);
+    }
+    
+    // Helper function to get color based on coverage percentage
+    function getCoverageColor(percentage) {
+        if (percentage >= 80) {
+            return '#28a745'; // Green for good coverage
+        } else if (percentage >= 50) {
+            return '#ffc107'; // Yellow for moderate coverage
+        } else {
+            return '#dc3545'; // Red for poor coverage
+        }
+    }
+    
+    function addDownloadReportButton() {
+        // Check if button already exists
+        let downloadButton = document.getElementById('download-report-button');
+        if (downloadButton) {
+            return; // Button already exists
+        }
+        
+        // Create download button
+        downloadButton = document.createElement('button');
+        downloadButton.id = 'download-report-button';
+        downloadButton.className = 'primary-button download-button';
+        downloadButton.textContent = 'Download PDF Report';
+        downloadButton.addEventListener('click', downloadReportAsPDF);
+        
+        // Add button to the button group
+        const buttonGroup = coverageResultsSection.querySelector('.button-group');
+        buttonGroup.insertBefore(downloadButton, buttonGroup.firstChild);
     }
 
     function displayFilesAnalysis(filesAnalysis) {
