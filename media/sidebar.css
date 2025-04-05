@@ -117,9 +117,22 @@ button {
 .button-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     justify-content: space-between;
     margin-top: 15px;
+}
+
+.primary-button, .secondary-button {
+    flex: 1 0 30%;  /* Allow buttons to grow but maintain minimum width */
+    min-width: 100px;
+    font-size: 13px;
+    padding: 6px 8px;
+}
+
+@media (max-width: 240px) {
+    .primary-button, .secondary-button {
+        flex: 1 0 100%;
+    }
 }
 
 .status-message {

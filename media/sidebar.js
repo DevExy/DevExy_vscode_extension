@@ -9,6 +9,7 @@
     const loginButton = document.getElementById('login-button');
     const generateUnitButton = document.getElementById('generate-unit-button');
     const generateIntegrationButton = document.getElementById('generate-integration-button');
+    const generateStressButton = document.getElementById('generate-stress-button');
     const applyButton = document.getElementById('apply-button');
     const cancelButton = document.getElementById('cancel-button');
     const usernameInput = document.getElementById('username');
@@ -74,6 +75,21 @@
             command: 'generateTests',
             testDir,
             testType: 'integration'
+        });
+    });
+    
+    generateStressButton.addEventListener('click', () => {
+        const testDir = testDirectoryInput.value.trim();
+        
+        if (!testDir) {
+            showStatusMessage(testStatusMessage, 'error', 'Test directory is required');
+            return;
+        }
+        
+        vscode.postMessage({ 
+            command: 'generateTests',
+            testDir,
+            testType: 'stress'
         });
     });
     
@@ -169,14 +185,17 @@
                 showStatusMessage(testStatusMessage, 'loading', statusMsg);
                 generateUnitButton.disabled = true;
                 generateIntegrationButton.disabled = true;
+                generateStressButton.disabled = true;
             } else if (status === 'success') {
                 showStatusMessage(testStatusMessage, 'success', statusMsg);
                 generateUnitButton.disabled = false;
                 generateIntegrationButton.disabled = false;
+                generateStressButton.disabled = false;
             } else if (status === 'error') {
                 showStatusMessage(testStatusMessage, 'error', statusMsg);
                 generateUnitButton.disabled = false;
                 generateIntegrationButton.disabled = false;
+                generateStressButton.disabled = false;
             }
         }
     }

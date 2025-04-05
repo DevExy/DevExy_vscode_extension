@@ -4,6 +4,7 @@ import { DevexySidebarProvider } from './sidebar/devexySidebar';
 import { setExtensionContext } from './utils';
 import { isLoggedIn, logout } from './auth';
 import { applyGeneratedTests, GeneratedTest } from './testGeneration';
+import { generateStressTests } from './stressTestGeneration';
 
 // This method is called when your extension is activated
 export function activate(context: vscode.ExtensionContext) {

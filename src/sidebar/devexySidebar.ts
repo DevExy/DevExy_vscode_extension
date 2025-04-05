@@ -322,15 +322,16 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             
             <section id="generate-tests-section" class="panel">
                 <h2>Generate Tests</h2>
-                <p class="info-text">Generate unit or integration tests for selected files or the current file.</p>
+                <p class="info-text">Generate unit, integration, or stress tests for selected files or the current file.</p>
                 <div class="form-group">
                     <label for="test-directory">Test Directory</label>
                     <input type="text" id="test-directory" value="tests" placeholder="tests">
                 </div>
                 <div id="test-status-message" class="status-message"></div>
                 <div class="button-group">
-                    <button id="generate-unit-button" class="primary-button">Generate Unit Tests</button>
-                    <button id="generate-integration-button" class="primary-button">Generate Integration Tests</button>
+                    <button id="generate-unit-button" class="primary-button">Unit Tests</button>
+                    <button id="generate-integration-button" class="primary-button">Integration Tests</button>
+                    <button id="generate-stress-button" class="primary-button">Stress Tests</button>
                 </div>
             </section>
             
