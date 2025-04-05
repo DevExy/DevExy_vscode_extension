@@ -1,7 +1,7 @@
 :root {
-    --brand-color: #007ACC;
-    --brand-light: #3399FF;
-    --brand-dark: #005A99;
+    --brand-color: #66BB6A;
+    --brand-light: #88CC8C;
+    --brand-dark: #4C8A4F;
     --success-color: #28a745;
     --error-color: #dc3545;
     --warning-color: #ffc107;
@@ -156,7 +156,7 @@ button {
 
 .status-message.loading {
     border-left: 3px solid var(--brand-color);
-    background-color: rgba(0, 122, 204, 0.1);
+    background-color: rgba(102, 187, 106, 0.1);
     color: var(--brand-color);
     display: flex;
     align-items: center;
@@ -164,7 +164,7 @@ button {
 
 .spinner {
     margin-right: 8px;
-    border: 2px solid rgba(0, 122, 204, 0.3);
+    border: 2px solid rgba(102, 187, 106, 0.3);
     border-radius: 50%;
     border-top: 2px solid var(--brand-color);
     width: 16px;
@@ -253,4 +253,170 @@ footer {
     border: 1px solid var(--brand-color);
     padding: 3px 8px;
     font-size: 11px;
+}
+
+.action-button {
+    background-color: transparent;
+    color: var(--brand-color);
+    border: 1px solid var(--brand-color);
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.files-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin: 8px 0;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.file-item {
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.coverage-summary {
+    margin-bottom: 15px;
+}
+
+.coverage-metric {
+    margin-bottom: 10px;
+}
+
+.coverage-metric-name {
+    font-weight: 500;
+    margin-bottom: 3px;
+}
+
+.coverage-metric-value {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.coverage-bar-container {
+    flex-grow: 1;
+    height: 8px;
+    background-color: rgba(220, 53, 69, 0.2);
+    margin: 0 10px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.coverage-bar {
+    height: 100%;
+    background-color: var(--success-color);
+}
+
+.coverage-value {
+    font-size: 12px;
+    min-width: 40px;
+    text-align: right;
+}
+
+.coverage-metric-explanation {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 5px;
+}
+
+.coverage-recommendations {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.coverage-recommendations h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.recommendations-list {
+    font-size: 12px;
+    padding-left: 20px;
+}
+
+.recommendations-list li {
+    margin-bottom: 5px;
+}
+
+.files-analysis {
+    margin-top: 15px;
+}
+
+.file-analysis {
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.file-analysis-header {
+    padding: 8px;
+    background-color: var(--vscode-editor-lineHighlightBackground);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.file-analysis-name {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.file-analysis-toggle {
+    background-color: transparent;
+    color: var(--brand-color);
+    border: 1px solid var(--brand-color);
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.file-analysis-content {
+    padding: 8px;
+    font-size: 12px;
+}
+
+.file-analysis-section {
+    margin-bottom: 10px;
+}
+
+.file-analysis-section h4 {
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.file-analysis-list {
+    padding-left: 20px;
+    margin: 5px 0;
+}
+
+.file-analysis-list li {
+    margin-bottom: 3px;
+}
+
+.suggestion-item {
+    margin-bottom: 8px;
+}
+
+.suggestion-description {
+    font-weight: 500;
+    margin-bottom: 3px;
+}
+
+.suggestion-hint {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+}
+
+.risk-assessment {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: rgba(255, 193, 7, 0.1);
+    border-left: 3px solid var(--warning-color);
 }

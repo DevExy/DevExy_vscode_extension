@@ -4,12 +4,15 @@ import { getAuthToken } from '../auth';
 import { generateTests } from '../testGeneration';
 import { generateIntegrationTests } from '../integrationTestGeneration';
 import { getNonce, getExtensionContext } from '../utils';
+import { analyzeCoverage, CoverageAnalysisResponse } from '../coverageAnalysis';
 
 export class DevexySidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'devexy.sidebar';
     private _view?: vscode.WebviewView;
     private _extensionUri: vscode.Uri;
     private _channel: vscode.OutputChannel;
+    private _selectedSourceFiles: vscode.Uri[] = [];
+    private _selectedTestFiles: vscode.Uri[] = [];
     
     constructor(extensionUri: vscode.Uri, channel: vscode.OutputChannel) {
         this._extensionUri = extensionUri;
@@ -63,6 +66,24 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 case 'previewTest':
                     this._log(`Previewing test: ${message.test.filepath}`);
                     await vscode.commands.executeCommand('devexy.previewTest', message.test);
+                    return;
+
+                case 'selectSourceFiles':
+                    await this._selectSourceFiles();
+                    return;
+                    
+                case 'selectTestFiles':
+                    await this._selectTestFiles();
+                    return;
+                    
+                case 'analyzeCoverage':
+                    await this._analyzeCoverage();
+                    return;
+                    
+                case 'closeCoverageResults':
+                    this._view?.webview.postMessage({
+                        command: 'hideCoverageResults'
+                    });
                     return;
             }
         });
@@ -335,6 +356,38 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 </div>
             </section>
             
+            <section id="coverage-analysis-section" class="panel">
+                <h2>Coverage Analysis</h2>
+                <p class="info-text">Analyze test coverage by selecting source files and their corresponding test files.</p>
+                <div class="form-group">
+                    <button id="select-source-files-button" class="secondary-button">Select Source Files</button>
+                    <div id="source-files-list" class="files-list">
+                        <p class="info-text">No source files selected</p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button id="select-test-files-button" class="secondary-button">Select Test Files</button>
+                    <div id="test-files-list" class="files-list">
+                        <p class="info-text">No test files selected</p>
+                    </div>
+                </div>
+                <div id="coverage-status-message" class="status-message"></div>
+                <div class="button-group">
+                    <button id="analyze-coverage-button" class="primary-button">Analyze Coverage</button>
+                </div>
+            </section>
+            
+            <section id="coverage-results-section" class="panel hidden">
+                <h2>Coverage Results</h2>
+                <div id="coverage-summary" class="coverage-summary"></div>
+                <div id="coverage-recommendations" class="coverage-recommendations"></div>
+                <div id="coverage-visualization" class="coverage-visualization"></div>
+                <div id="files-analysis" class="files-analysis"></div>
+                <div class="button-group">
+                    <button id="close-coverage-button" class="secondary-button">Close</button>
+                </div>
+            </section>
+            
             <section id="test-results-section" class="panel hidden">
                 <h2>Test Results</h2>
                 <div id="test-results-list"></div>
@@ -351,5 +404,125 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
         </html>`;
+    }
+
+    private async _selectSourceFiles() {
+        try {
+            const files = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                openLabel: 'Select Source Files',
+                filters: {
+                    'Source Files': ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
+                }
+            });
+            
+            if (files && files.length > 0) {
+                this._selectedSourceFiles = files;
+                
+                // Send selected files to webview
+                this._view?.webview.postMessage({
+                    command: 'updateSourceFiles',
+                    files: files.map(f => vscode.workspace.asRelativePath(f))
+                });
+                
+                this._log(`Selected ${files.length} source files for coverage analysis`);
+            }
+        } catch (error) {
+            this._log(`Error selecting source files: ${error}`);
+        }
+    }
+    
+    private async _selectTestFiles() {
+        try {
+            const files = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                openLabel: 'Select Test Files',
+                filters: {
+                    'Test Files': ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
+                }
+            });
+            
+            if (files && files.length > 0) {
+                this._selectedTestFiles = files;
+                
+                // Send selected files to webview
+                this._view?.webview.postMessage({
+                    command: 'updateTestFiles',
+                    files: files.map(f => vscode.workspace.asRelativePath(f))
+                });
+                
+                this._log(`Selected ${files.length} test files for coverage analysis`);
+            }
+        } catch (error) {
+            this._log(`Error selecting test files: ${error}`);
+        }
+    }
+    
+    private async _analyzeCoverage() {
+        try {
+            // Check if files are selected
+            if (this._selectedSourceFiles.length === 0) {
+                this._view?.webview.postMessage({
+                    command: 'showError',
+                    action: 'coverage',
+                    message: 'Please select source files for coverage analysis'
+                });
+                return;
+            }
+            
+            if (this._selectedTestFiles.length === 0) {
+                this._view?.webview.postMessage({
+                    command: 'showError',
+                    action: 'coverage',
+                    message: 'Please select test files for coverage analysis'
+                });
+                return;
+            }
+            
+            // Update UI to loading state
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                status: 'loading',
+                action: 'coverage',
+                message: 'Analyzing test coverage...'
+            });
+            
+            // Get coverage analysis
+            const context = getExtensionContext();
+            const results = await analyzeCoverage(
+                context,
+                this._selectedSourceFiles,
+                this._selectedTestFiles,
+                (progress: string) => {
+                    // Pass progress updates to the webview
+                    this._view?.webview.postMessage({
+                        command: 'updateProgress',
+                        action: 'coverage',
+                        message: progress
+                    });
+                    
+                    this._log(progress);
+                }
+            );
+            
+            // Update UI with results
+            this._view?.webview.postMessage({
+                command: 'updateCoverageResults',
+                results: results
+            });
+            
+            this._log('Coverage analysis completed successfully');
+            
+        } catch (error: any) {
+            this._log(`Coverage analysis error: ${error.message || 'Unknown error'}`);
+            
+            // Update UI to error state
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                status: 'error',
+                action: 'coverage',
+                message: `Coverage analysis failed: ${error.message || 'Unknown error'}`
+            });
+        }
     }
 }

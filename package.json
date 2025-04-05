@@ -56,6 +56,11 @@
         "command": "devexy.generateTests",
         "title": "DevExy: Generate Tests",
         "icon": "$(beaker)"
+      },
+      {
+        "command": "devexy.analyzeCoverage",
+        "title": "DevExy: Analyze Test Coverage",
+        "icon": "$(graph)"
       }
     ],
     "menus": {
