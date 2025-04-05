@@ -61,6 +61,11 @@
         "command": "devexy.analyzeCoverage",
         "title": "DevExy: Analyze Test Coverage",
         "icon": "$(graph)"
+      },
+      {
+        "command": "devexy.analyzeTestPriority",
+        "title": "DevExy: Analyze Test Priorities",
+        "icon": "$(checklist)"
       }
     ],
     "menus": {

@@ -527,3 +527,439 @@ footer {
 .download-button:hover {
     background-color: var(--brand-color);
 }
+
+/* Test Priority Analysis Styles */
+#criticality-context {
+    width: 100%;
+    min-height: 80px;
+    padding: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 3px;
+    font-family: var(--vscode-font-family);
+    resize: vertical;
+}
+
+.priority-summary {
+    margin-bottom: 20px;
+}
+
+.priority-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.priority-assessment {
+    background-color: var(--vscode-editor-lineHighlightBackground);
+    padding: 10px;
+    border-radius: 3px;
+    border-left: 3px solid var(--brand-color);
+}
+
+.priority-assessment h3 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+.priority-assessment p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.priority-stats {
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    border-radius: 3px;
+}
+
+.priority-stats h3 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--brand-color);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 8px;
+    border-radius: 3px;
+    background-color: var(--vscode-editor-background);
+    border-top: 3px solid var(--border-color);
+}
+
+.stat-item.high-risk {
+    border-top-color: #dc3545;
+}
+
+.stat-item.medium-risk {
+    border-top-color: #ffc107;
+}
+
+.stat-item.low-risk {
+    border-top-color: #28a745;
+}
+
+.stat-item.security-risk {
+    border-top-color: #8a2be2;
+}
+
+.stat-item.top-priority {
+    border-top-color: #ff6b6b;
+}
+
+.stat-value {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.critical-areas {
+    margin-top: 15px;
+}
+
+.critical-areas h3 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--brand-color);
+}
+
+.critical-areas-list {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+}
+
+.critical-areas-list li {
+    margin-bottom: 3px;
+}
+
+/* Test Priorities */
+.test-priorities {
+    margin: 20px 0;
+}
+
+.test-priorities h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: var(--brand-color);
+}
+
+.priority-item {
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.priority-item-header {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: var(--vscode-editor-lineHighlightBackground);
+}
+
+.priority-score {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    margin-right: 10px;
+    color: white;
+}
+
+.score-critical {
+    background-color: #dc3545;
+}
+
+.score-high {
+    background-color: #ff6b6b;
+}
+
+.score-medium {
+    background-color: #ffc107;
+}
+
+.score-low {
+    background-color: #28a745;
+}
+
+.test-info {
+    flex-grow: 1;
+}
+
+.test-name {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.test-path {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.toggle-button {
+    background-color: transparent;
+    color: var(--brand-color);
+    border: 1px solid var(--brand-color);
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.priority-item-content {
+    padding: 10px;
+    font-size: 12px;
+    background-color: var(--vscode-editor-background);
+    border-top: 1px solid var(--border-color);
+}
+
+.risk-categories-section, .impact-section, .security-section, .dependencies-section, .coverage-impact {
+    margin-bottom: 12px;
+}
+
+.risk-categories-section h4, .impact-section h4, .security-section h4, .dependencies-section h4, .coverage-impact h4 {
+    font-size: 13px;
+    margin-top: 0;
+    margin-bottom: 6px;
+}
+
+.risk-category {
+    margin-bottom: 8px;
+    padding: 6px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.category-name {
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.category-severity {
+    font-size: 11px;
+}
+
+.category-description {
+    margin-bottom: 5px;
+}
+
+.impact-areas {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.dependencies-list {
+    margin: 0;
+    padding-left: 20px;
+}
+
+/* Security Vulnerabilities */
+.security-vulnerabilities {
+    margin: 20px 0;
+}
+
+.security-vulnerabilities h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: var(--brand-color);
+}
+
+.vulnerabilities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.vulnerability-item {
+    display: flex;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.severity-indicator {
+    width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    color: white;
+}
+
+.critical-severity {
+    background-color: #dc3545;
+}
+
+.high-severity {
+    background-color: #ff6b6b;
+}
+
+.medium-severity {
+    background-color: #ffc107;
+}
+
+.low-severity {
+    background-color: #28a745;
+}
+
+.vuln-content {
+    flex-grow: 1;
+    padding: 10px;
+    font-size: 12px;
+}
+
+.vuln-description {
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.vuln-meta {
+    margin-bottom: 8px;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.mitigation-section h4 {
+    font-size: 12px;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+.mitigation-list {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 12px;
+}
+
+.mitigation-list li {
+    margin-bottom: 4px;
+}
+
+/* Visualizations */
+.priority-visualization-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.priority-chart {
+    height: 30px;
+    display: flex;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.priority-bar {
+    height: 100%;
+}
+
+.high-priority {
+    background-color: #dc3545;
+}
+
+.medium-priority {
+    background-color: #ffc107;
+}
+
+.low-priority {
+    background-color: #28a745;
+}
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    font-size: 12px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.risk-category-table, .module-distribution-table, .security-impact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: left;
+}
+
+.risk-category-table th, .module-distribution-table th, .security-impact-table th,
+.risk-category-table td, .module-distribution-table td, .security-impact-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.critical-score {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.high-score {
+    color: #ff6b6b;
+    font-weight: bold;
+}
+
+.medium-score {
+    color: #ffc107;
+}
+
+.low-score {
+    color: #28a745;
+}
+
+/* Add styles for new subsections */
+.analysis-subsection {
+    padding: 12px;
+    margin: 15px 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.analysis-subsection h3 {
+    font-size: 14px;
+    margin: 0 0 10px 0;
+    color: var(--brand-color);
+}
+
+/* Adjust spacing for the shared file selection area */
+#test-analysis-section > .form-group {
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+}

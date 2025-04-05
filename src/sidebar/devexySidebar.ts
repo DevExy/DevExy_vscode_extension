@@ -5,6 +5,7 @@ import { generateTests } from '../testGeneration';
 import { generateIntegrationTests } from '../integrationTestGeneration';
 import { getNonce, getExtensionContext } from '../utils';
 import { analyzeCoverage, CoverageAnalysisResponse } from '../coverageAnalysis';
+import { analyzeTestPriority, TestPriorityAnalysisResponse } from '../testPriorityAnalysis';
 
 export class DevexySidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'devexy.sidebar';
@@ -13,56 +14,54 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
     private _channel: vscode.OutputChannel;
     private _selectedSourceFiles: vscode.Uri[] = [];
     private _selectedTestFiles: vscode.Uri[] = [];
-    
+    private _criticalityContext: string = "";
+
     constructor(extensionUri: vscode.Uri, channel: vscode.OutputChannel) {
         this._extensionUri = extensionUri;
         this._channel = channel;
     }
-    
+
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
         context: vscode.WebviewViewResolveContext,
         token: vscode.CancellationToken
     ) {
         this._view = webviewView;
-        
+
         webviewView.webview.options = {
-            // Enable JavaScript in the webview
             enableScripts: true,
-            // Restrict the webview to only loading content from specific directories
             localResourceRoots: [
                 this._extensionUri
             ]
         };
-        
+
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-        
-        // Handle messages from the webview
+
         webviewView.webview.onDidReceiveMessage(async message => {
             switch (message.command) {
                 case 'login':
                     this._log('User initiated login');
                     await this._login(message.username, message.password);
                     return;
-                
+
                 case 'generateTests':
                     this._log(`User initiated ${message.testType || 'unit'} test generation`);
                     await this._generateTests(message.testDir, message.testType || 'unit');
                     return;
-                    
+
                 case 'checkLoginStatus':
                     await this._checkLoginStatus();
                     return;
-                
+
                 case 'logOutput':
                     this._log(message.text);
                     return;
-                    
+
                 case 'applyTests':
                     this._log('Applying generated tests');
                     await vscode.commands.executeCommand('devexy.applyTests', message.tests);
                     return;
-                    
+
                 case 'previewTest':
                     this._log(`Previewing test: ${message.test.filepath}`);
                     await vscode.commands.executeCommand('devexy.previewTest', message.test);
@@ -71,18 +70,32 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 case 'selectSourceFiles':
                     await this._selectSourceFiles();
                     return;
-                    
+
                 case 'selectTestFiles':
                     await this._selectTestFiles();
                     return;
-                    
+
                 case 'analyzeCoverage':
                     await this._analyzeCoverage();
                     return;
-                    
+
+                case 'analyzeTestPriority':
+                    await this._analyzeTestPriority();
+                    return;
+
+                case 'updateCriticalityContext':
+                    this._criticalityContext = message.context;
+                    return;
+
                 case 'closeCoverageResults':
                     this._view?.webview.postMessage({
                         command: 'hideCoverageResults'
+                    });
+                    return;
+
+                case 'closePriorityResults':
+                    this._view?.webview.postMessage({
+                        command: 'hidePriorityResults'
                     });
                     return;
 
@@ -91,68 +104,59 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                     return;
             }
         });
-        
-        // Check login status when sidebar loads
+
         this._checkLoginStatus();
     }
 
     public refreshLoginStatus() {
         this._checkLoginStatus();
     }
-    
+
     private async _login(username: string, password: string) {
         try {
-            // Update UI to loading state
-            this._view?.webview.postMessage({ 
+            this._view?.webview.postMessage({
                 command: 'updateStatus',
                 status: 'loading',
                 action: 'login',
-                message: 'Logging in...' 
+                message: 'Logging in...'
             });
-            
-            // Attempt to log in
+
             const context = getExtensionContext();
-            
-            // Get login credentials
+
             if (!username) {
                 throw new Error('Username is required');
             }
-            
+
             if (!password) {
                 throw new Error('Password is required');
             }
-            
+
             try {
-                // Import required module inside the function to avoid circular dependencies
                 const { login } = require('../auth');
-                
-                // Login with credentials
                 await login(context, username, password);
-                
-                // Update UI to success state
-                this._view?.webview.postMessage({ 
+
+                this._view?.webview.postMessage({
                     command: 'updateStatus',
                     status: 'success',
                     action: 'login',
-                    message: 'Successfully logged in' 
+                    message: 'Successfully logged in'
                 });
-                
+
                 this._log('Login successful');
             } catch (error: any) {
                 this._log(`Login error: ${error.message || 'Unknown error'}`);
-                
-                // Update UI to error state
-                this._view?.webview.postMessage({ 
+
+                this._view?.webview.postMessage({
                     command: 'updateStatus',
                     status: 'error',
                     action: 'login',
                     message: `Login failed: ${error.response?.data?.detail || error.message || 'Unknown error'}`
                 });
-                
+
                 throw error;
             }
         } catch (error: any) {
-            this._view?.webview.postMessage({ 
+            this._view?.webview.postMessage({
                 command: 'updateStatus',
                 status: 'error',
                 action: 'login',
@@ -160,25 +164,21 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             });
         }
     }
-    
+
     private async _generateTests(testDir?: string, testType: 'unit' | 'integration' = 'unit') {
         try {
-            // Update UI to loading state
-            this._view?.webview.postMessage({ 
+            this._view?.webview.postMessage({
                 command: 'updateStatus',
                 status: 'loading',
                 action: 'generateTests',
-                message: `Preparing ${testType} test generation...` 
+                message: `Preparing ${testType} test generation...`
             });
-            
-            // Get context for token
+
             const context = getExtensionContext();
-            
-            // Get files to process
             const files = await this._getFilesToProcess();
-            
+
             if (files.length === 0) {
-                this._view?.webview.postMessage({ 
+                this._view?.webview.postMessage({
                     command: 'updateStatus',
                     status: 'error',
                     action: 'generateTests',
@@ -186,59 +186,52 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 });
                 return;
             }
-            
-            // Update message
-            this._view?.webview.postMessage({ 
+
+            this._view?.webview.postMessage({
                 command: 'updateStatus',
                 status: 'loading',
                 action: 'generateTests',
-                message: `Generating ${testType} tests for ${files.length} file(s)...` 
+                message: `Generating ${testType} tests for ${files.length} file(s)...`
             });
-            
+
             const testDirDefault = testDir || 'tests';
-            
+
             let results;
-            
-            // Run test generation based on type
+
             if (testType === 'integration') {
                 results = await generateIntegrationTests(context, files, testDirDefault, (progress: string) => {
-                    // Pass progress updates to the webview
-                    this._view?.webview.postMessage({ 
+                    this._view?.webview.postMessage({
                         command: 'updateProgress',
                         action: 'generateTests',
                         message: progress
                     });
-                    
+
                     this._log(progress);
                 });
             } else {
-                // Default to unit test generation
                 results = await generateTests(context, files, testDirDefault, (progress: string) => {
-                    // Pass progress updates to the webview
-                    this._view?.webview.postMessage({ 
+                    this._view?.webview.postMessage({
                         command: 'updateProgress',
                         action: 'generateTests',
                         message: progress
                     });
-                    
+
                     this._log(progress);
                 });
             }
-            
-            // Update UI to success state
-            this._view?.webview.postMessage({ 
+
+            this._view?.webview.postMessage({
                 command: 'updateTestResults',
                 status: 'success',
                 tests: results
             });
-            
+
             this._log(`Generated ${results.length} ${testType} test file(s)`);
-            
+
         } catch (error: any) {
             this._log(`Test generation error: ${error.message || 'Unknown error'}`);
-            
-            // Update UI to error state
-            this._view?.webview.postMessage({ 
+
+            this._view?.webview.postMessage({
                 command: 'updateStatus',
                 status: 'error',
                 action: 'generateTests',
@@ -246,7 +239,7 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             });
         }
     }
-    
+
     private async _checkLoginStatus() {
         try {
             const context = getExtensionContext();
@@ -270,22 +263,20 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             }
         } catch (error) {
             this._log('Error checking login status');
-            this._view?.webview.postMessage({ 
+            this._view?.webview.postMessage({
                 command: 'loginStatus',
                 isLoggedIn: false
             });
         }
     }
-    
+
     private async _getFilesToProcess(): Promise<vscode.Uri[]> {
-        // Check if there are files selected in the explorer
         const selectedFiles = this._getSelectedFilesFromExplorer();
-        
+
         if (selectedFiles && selectedFiles.length > 0) {
             return selectedFiles;
         }
-    
-        // If no files are selected, show file picker
+
         const files = await vscode.window.showOpenDialog({
             canSelectMany: true,
             openLabel: 'Select Files for Test Generation',
@@ -293,34 +284,261 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 'All Files': ['*']
             }
         });
-    
+
         return files || [];
     }
-    
+
     private _getSelectedFilesFromExplorer(): vscode.Uri[] | undefined {
         if (vscode.window.activeTextEditor) {
             return [vscode.window.activeTextEditor.document.uri];
         }
         return undefined;
     }
-    
+
     private _log(message: string) {
         this._channel.appendLine(`[${new Date().toLocaleTimeString()}] ${message}`);
     }
-    
+
+    private async _selectSourceFiles() {
+        try {
+            const files = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                openLabel: 'Select Source Files',
+                filters: {
+                    'Source Files': ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
+                }
+            });
+
+            if (files && files.length > 0) {
+                this._selectedSourceFiles = files;
+
+                this._view?.webview.postMessage({
+                    command: 'updateSourceFiles',
+                    files: files.map(f => vscode.workspace.asRelativePath(f))
+                });
+
+                this._log(`Selected ${files.length} source files for coverage analysis`);
+            }
+        } catch (error) {
+            this._log(`Error selecting source files: ${error}`);
+        }
+    }
+
+    private async _selectTestFiles() {
+        try {
+            const files = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                openLabel: 'Select Test Files',
+                filters: {
+                    'Test Files': ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
+                }
+            });
+
+            if (files && files.length > 0) {
+                this._selectedTestFiles = files;
+
+                this._view?.webview.postMessage({
+                    command: 'updateTestFiles',
+                    files: files.map(f => vscode.workspace.asRelativePath(f))
+                });
+
+                this._log(`Selected ${files.length} test files for coverage analysis`);
+            }
+        } catch (error) {
+            this._log(`Error selecting test files: ${error}`);
+        }
+    }
+
+    private async _analyzeCoverage() {
+        try {
+            if (this._selectedSourceFiles.length === 0) {
+                this._view?.webview.postMessage({
+                    command: 'showError',
+                    action: 'coverage',
+                    message: 'Please select source files for coverage analysis'
+                });
+                return;
+            }
+
+            if (this._selectedTestFiles.length === 0) {
+                this._view?.webview.postMessage({
+                    command: 'showError',
+                    action: 'coverage',
+                    message: 'Please select test files for coverage analysis'
+                });
+                return;
+            }
+
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                status: 'loading',
+                action: 'coverage',
+                message: 'Analyzing test coverage...'
+            });
+
+            const context = getExtensionContext();
+            const results = await analyzeCoverage(
+                context,
+                this._selectedSourceFiles,
+                this._selectedTestFiles,
+                (progress: string) => {
+                    this._view?.webview.postMessage({
+                        command: 'updateProgress',
+                        action: 'coverage',
+                        message: progress
+                    });
+
+                    this._log(progress);
+                }
+            );
+
+            this._view?.webview.postMessage({
+                command: 'updateCoverageResults',
+                results: results
+            });
+
+            this._log('Coverage analysis completed successfully');
+
+        } catch (error: any) {
+            this._log(`Coverage analysis error: ${error.message || 'Unknown error'}`);
+
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                status: 'error',
+                action: 'coverage',
+                message: `Coverage analysis failed: ${error.message || 'Unknown error'}`
+            });
+        }
+    }
+
+    private async _analyzeTestPriority() {
+        try {
+            // Check if files are selected
+            if (this._selectedSourceFiles.length === 0) {
+                this._view?.webview.postMessage({
+                    command: 'showError',
+                    action: 'priority',
+                    message: 'Please select source files for test priority analysis'
+                });
+                return;
+            }
+            
+            if (this._selectedTestFiles.length === 0) {
+                this._view?.webview.postMessage({
+                    command: 'showError',
+                    action: 'priority',
+                    message: 'Please select test files for test priority analysis'
+                });
+                return;
+            }
+            
+            // Update UI to loading state
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                status: 'loading',
+                action: 'priority',
+                message: 'Analyzing test priorities and risks...'
+            });
+            
+            // Get test priority analysis
+            const context = getExtensionContext();
+            const results = await analyzeTestPriority(
+                context,
+                this._selectedSourceFiles,
+                this._selectedTestFiles,
+                this._criticalityContext,
+                (progress: string) => {
+                    // Pass progress updates to the webview
+                    this._view?.webview.postMessage({
+                        command: 'updateProgress',
+                        action: 'priority',
+                        message: progress
+                    });
+                    
+                    this._log(progress);
+                }
+            );
+            
+            // Update UI with results
+            this._view?.webview.postMessage({
+                command: 'updatePriorityResults',
+                results: results
+            });
+            
+            this._log('Test priority analysis completed successfully');
+            
+        } catch (error: any) {
+            this._log(`Test priority analysis error: ${error.message || 'Unknown error'}`);
+            
+            // Update UI to error state
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                status: 'error',
+                action: 'priority',
+                message: `Test priority analysis failed: ${error.message || 'Unknown error'}`
+            });
+        }
+    }
+
+    private async _generatePdfReport() {
+        try {
+            this._log('Generating PDF report...');
+
+            this._view?.webview.postMessage({
+                command: 'updateStatus',
+                action: 'coverage',
+                status: 'loading',
+                message: 'Generating PDF report...'
+            });
+
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                throw new Error('No workspace folder found');
+            }
+
+            const context = getExtensionContext();
+            const token = await getAuthToken(context);
+
+            const date = new Date().toISOString().split('T')[0];
+            const filename = `coverage-report-${date}.pdf`;
+            const reportPath = path.join(workspaceFolder.uri.fsPath, filename);
+
+            const fs = require('fs');
+            const reportContent = Buffer.from(`
+                Coverage Report
+                Generated on ${new Date().toLocaleString()}
+                This is a placeholder PDF file.
+                Actual implementation would generate a proper PDF with charts and tables.
+            `);
+
+            fs.writeFileSync(reportPath, reportContent);
+
+            const doc = await vscode.workspace.openTextDocument(reportPath);
+            await vscode.window.showTextDocument(doc);
+
+            this._view?.webview.postMessage({
+                command: 'reportDownloaded',
+                path: reportPath
+            });
+
+            this._log(`PDF report generated and saved to ${reportPath}`);
+
+        } catch (error) {
+            this._log(`Error generating PDF report: ${error}`);
+
+            this._view?.webview.postMessage({
+                command: 'reportDownloadError',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    }
+
     private _getHtmlForWebview(webview: vscode.Webview): string {
-        // Get the local path to main script run in the webview, then convert to webview URI
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'sidebar.js'));
-        
-        // Same for CSS file
         const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'sidebar.css'));
-        
-        // Get logo
         const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'logo.png'));
-        
-        // Use a nonce to only allow specific scripts to be run
         const nonce = getNonce();
-        
+
         return `<!DOCTYPE html>
         <html lang="en">
         <head>
@@ -374,9 +592,11 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 </div>
             </section>
             
-            <section id="coverage-analysis-section" class="panel">
-                <h2>Coverage Analysis</h2>
-                <p class="info-text">Analyze test coverage by selecting source files and their corresponding test files.</p>
+            <section id="test-analysis-section" class="panel">
+                <h2>Test Analysis</h2>
+                <p class="info-text">Analyze test coverage and test priorities by selecting source files and their corresponding test files.</p>
+                
+                <!-- Shared file selection controls -->
                 <div class="form-group">
                     <button id="select-source-files-button" class="secondary-button">Select Source Files</button>
                     <div id="source-files-list" class="files-list">
@@ -389,9 +609,27 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                         <p class="info-text">No test files selected</p>
                     </div>
                 </div>
-                <div id="coverage-status-message" class="status-message"></div>
-                <div class="button-group">
-                    <button id="analyze-coverage-button" class="primary-button">Analyze Coverage</button>
+                
+                <!-- Coverage Analysis subsection -->
+                <div class="analysis-subsection">
+                    <h3>Coverage Analysis</h3>
+                    <div id="coverage-status-message" class="status-message"></div>
+                    <div class="button-group">
+                        <button id="analyze-coverage-button" class="primary-button">Analyze Coverage</button>
+                    </div>
+                </div>
+                
+                <!-- Test Priority Analysis subsection -->
+                <div class="analysis-subsection">
+                    <h3>Test Priority Analysis</h3>
+                    <div class="form-group">
+                        <label for="criticality-context">Code Criticality Context (Optional)</label>
+                        <textarea id="criticality-context" placeholder="Describe critical aspects of your code (e.g., payment processing, user data handling)"></textarea>
+                    </div>
+                    <div id="priority-status-message" class="status-message"></div>
+                    <div class="button-group">
+                        <button id="analyze-priority-button" class="primary-button">Analyze Test Priorities</button>
+                    </div>
                 </div>
             </section>
             
@@ -403,6 +641,18 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 <div id="files-analysis" class="files-analysis"></div>
                 <div class="button-group">
                     <button id="close-coverage-button" class="secondary-button">Close</button>
+                </div>
+            </section>
+            
+            <section id="priority-results-section" class="panel hidden">
+                <h2>Test Priority Results</h2>
+                <div id="priority-summary" class="priority-summary"></div>
+                <div id="test-priorities" class="test-priorities"></div>
+                <div id="security-vulnerabilities" class="security-vulnerabilities"></div>
+                <div id="priority-visualization" class="priority-visualization"></div>
+                <div id="priority-recommendations" class="priority-recommendations"></div>
+                <div class="button-group">
+                    <button id="close-priority-button" class="secondary-button">Close</button>
                 </div>
             </section>
             
@@ -422,194 +672,5 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
         </html>`;
-    }
-
-    private async _selectSourceFiles() {
-        try {
-            const files = await vscode.window.showOpenDialog({
-                canSelectMany: true,
-                openLabel: 'Select Source Files',
-                filters: {
-                    'Source Files': ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
-                }
-            });
-            
-            if (files && files.length > 0) {
-                this._selectedSourceFiles = files;
-                
-                // Send selected files to webview
-                this._view?.webview.postMessage({
-                    command: 'updateSourceFiles',
-                    files: files.map(f => vscode.workspace.asRelativePath(f))
-                });
-                
-                this._log(`Selected ${files.length} source files for coverage analysis`);
-            }
-        } catch (error) {
-            this._log(`Error selecting source files: ${error}`);
-        }
-    }
-    
-    private async _selectTestFiles() {
-        try {
-            const files = await vscode.window.showOpenDialog({
-                canSelectMany: true,
-                openLabel: 'Select Test Files',
-                filters: {
-                    'Test Files': ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
-                }
-            });
-            
-            if (files && files.length > 0) {
-                this._selectedTestFiles = files;
-                
-                // Send selected files to webview
-                this._view?.webview.postMessage({
-                    command: 'updateTestFiles',
-                    files: files.map(f => vscode.workspace.asRelativePath(f))
-                });
-                
-                this._log(`Selected ${files.length} test files for coverage analysis`);
-            }
-        } catch (error) {
-            this._log(`Error selecting test files: ${error}`);
-        }
-    }
-    
-    private async _analyzeCoverage() {
-        try {
-            // Check if files are selected
-            if (this._selectedSourceFiles.length === 0) {
-                this._view?.webview.postMessage({
-                    command: 'showError',
-                    action: 'coverage',
-                    message: 'Please select source files for coverage analysis'
-                });
-                return;
-            }
-            
-            if (this._selectedTestFiles.length === 0) {
-                this._view?.webview.postMessage({
-                    command: 'showError',
-                    action: 'coverage',
-                    message: 'Please select test files for coverage analysis'
-                });
-                return;
-            }
-            
-            // Update UI to loading state
-            this._view?.webview.postMessage({
-                command: 'updateStatus',
-                status: 'loading',
-                action: 'coverage',
-                message: 'Analyzing test coverage...'
-            });
-            
-            // Get coverage analysis
-            const context = getExtensionContext();
-            const results = await analyzeCoverage(
-                context,
-                this._selectedSourceFiles,
-                this._selectedTestFiles,
-                (progress: string) => {
-                    // Pass progress updates to the webview
-                    this._view?.webview.postMessage({
-                        command: 'updateProgress',
-                        action: 'coverage',
-                        message: progress
-                    });
-                    
-                    this._log(progress);
-                }
-            );
-            
-            // Update UI with results
-            this._view?.webview.postMessage({
-                command: 'updateCoverageResults',
-                results: results
-            });
-            
-            this._log('Coverage analysis completed successfully');
-            
-        } catch (error: any) {
-            this._log(`Coverage analysis error: ${error.message || 'Unknown error'}`);
-            
-            // Update UI to error state
-            this._view?.webview.postMessage({
-                command: 'updateStatus',
-                status: 'error',
-                action: 'coverage',
-                message: `Coverage analysis failed: ${error.message || 'Unknown error'}`
-            });
-        }
-    }
-
-    private async _generatePdfReport() {
-        try {
-            this._log('Generating PDF report...');
-            
-            // Show progress to user
-            this._view?.webview.postMessage({
-                command: 'updateStatus',
-                action: 'coverage',
-                status: 'loading',
-                message: 'Generating PDF report...'
-            });
-            
-            // Get workspace folder
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (!workspaceFolder) {
-                throw new Error('No workspace folder found');
-            }
-            
-            // Get auth token in case it's needed for API calls
-            const context = getExtensionContext();
-            const token = await getAuthToken(context);
-            
-            // Let's use current date for the filename
-            const date = new Date().toISOString().split('T')[0];
-            const filename = `coverage-report-${date}.pdf`;
-            const reportPath = path.join(workspaceFolder.uri.fsPath, filename);
-            
-            // TODO: Implement actual PDF generation here
-            // Options:
-            // 1. Use an API call to backend service to generate PDF
-            // 2. Use a PDF generation library like pdfkit to generate locally
-            
-            // For now, let's use a simple approach that simulates PDF creation
-            // using a temporary API with dummy implementation
-            
-            // Create file with dummy content
-            const fs = require('fs');
-            const reportContent = Buffer.from(`
-                Coverage Report
-                Generated on ${new Date().toLocaleString()}
-                This is a placeholder PDF file.
-                Actual implementation would generate a proper PDF with charts and tables.
-            `);
-            
-            fs.writeFileSync(reportPath, reportContent);
-            
-            // Open the file using VS Code
-            const doc = await vscode.workspace.openTextDocument(reportPath);
-            await vscode.window.showTextDocument(doc);
-            
-            // Notify success
-            this._view?.webview.postMessage({
-                command: 'reportDownloaded',
-                path: reportPath
-            });
-            
-            this._log(`PDF report generated and saved to ${reportPath}`);
-            
-        } catch (error) {
-            this._log(`Error generating PDF report: ${error}`);
-            
-            // Update UI to error state
-            this._view?.webview.postMessage({
-                command: 'reportDownloadError',
-                error: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
     }
 }

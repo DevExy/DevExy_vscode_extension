@@ -5,8 +5,8 @@
     // Store current login state
     let isCurrentlyLoggedIn = false;
 
-    // Add these variables for the coverage analysis UI
-    const coverageAnalysisSection = document.getElementById('coverage-analysis-section');
+    // Test analysis UI elements (updated)
+    const testAnalysisSection = document.getElementById('test-analysis-section');
     const coverageResultsSection = document.getElementById('coverage-results-section');
     const selectSourceFilesButton = document.getElementById('select-source-files-button');
     const selectTestFilesButton = document.getElementById('select-test-files-button');
@@ -19,6 +19,18 @@
     const coverageRecommendations = document.getElementById('coverage-recommendations');
     const coverageVisualization = document.getElementById('coverage-visualization');
     const filesAnalysis = document.getElementById('files-analysis');
+
+    // Test priority analysis UI elements (updated - no need for separate file selection)
+    const priorityResultsSection = document.getElementById('priority-results-section');
+    const analyzePriorityButton = document.getElementById('analyze-priority-button');
+    const closePriorityButton = document.getElementById('close-priority-button');
+    const criticalityContextInput = document.getElementById('criticality-context');
+    const priorityStatusMessage = document.getElementById('priority-status-message');
+    const prioritySummary = document.getElementById('priority-summary');
+    const testPriorities = document.getElementById('test-priorities');
+    const securityVulnerabilities = document.getElementById('security-vulnerabilities');
+    const priorityVisualization = document.getElementById('priority-visualization');
+    const priorityRecommendations = document.getElementById('priority-recommendations');
 
     // Login elements
     const loginSection = document.getElementById('login-section');
@@ -84,6 +96,29 @@
         vscode.postMessage({ command: 'closeCoverageResults' });
     });
 
+    // Add event listeners for test priority analysis
+    analyzePriorityButton.addEventListener('click', () => {
+        checkLoginAndExecute(() => {
+            const context = criticalityContextInput.value.trim();
+            vscode.postMessage({ 
+                command: 'updateCriticalityContext',
+                context: context
+            });
+            vscode.postMessage({ command: 'analyzeTestPriority' });
+        });
+    });
+
+    closePriorityButton.addEventListener('click', () => {
+        vscode.postMessage({ command: 'closePriorityResults' });
+    });
+
+    criticalityContextInput.addEventListener('change', () => {
+        vscode.postMessage({ 
+            command: 'updateCriticalityContext',
+            context: criticalityContextInput.value.trim()
+        });
+    });
+
     // Listen for messages from the extension
     window.addEventListener('message', event => {
         const message = event.data;
@@ -114,10 +149,9 @@
                 text: 'User attempted to use feature without logging in'
             });
             updateTestStatus('error', 'Please log in first to use this feature');
-            // Show the login section and hide other sections
             loginSection.classList.remove('hidden');
             generateTestsSection.classList.add('hidden');
-            coverageAnalysisSection.classList.add('hidden');
+            testAnalysisSection.classList.add('hidden');
             testResultsSection.classList.add('hidden');
             return;
         }
@@ -143,7 +177,6 @@
             password: password
         });
         
-        // Reset password field for security
         passwordInput.value = '';
     }
 
@@ -176,7 +209,6 @@
         });
     }
 
-    // Download report as PDF
     function downloadReportAsPDF() {
         vscode.postMessage({
             command: 'downloadCoverageReport'
@@ -190,17 +222,17 @@
                 updateAuthStatus(message.isLoggedIn, message.username);
                 isCurrentlyLoggedIn = message.isLoggedIn;
                 
-                // Make sure we show the login form and hide other sections when logged out
                 if (!message.isLoggedIn) {
                     loginSection.classList.remove('hidden');
                     generateTestsSection.classList.add('hidden');
-                    coverageAnalysisSection.classList.add('hidden');
+                    testAnalysisSection.classList.add('hidden');
                     testResultsSection.classList.add('hidden');
                     coverageResultsSection.classList.add('hidden');
+                    priorityResultsSection.classList.add('hidden');
                 } else {
                     loginSection.classList.add('hidden');
                     generateTestsSection.classList.remove('hidden');
-                    coverageAnalysisSection.classList.remove('hidden');
+                    testAnalysisSection.classList.remove('hidden');
                 }
                 break;
             
@@ -208,17 +240,19 @@
                 if (message.action === 'login') {
                     updateLoginStatus(message.status, message.message);
                     
-                    // If login was successful, update UI accordingly
                     if (message.status === 'success') {
                         isCurrentlyLoggedIn = true;
                         loginSection.classList.add('hidden');
                         generateTestsSection.classList.remove('hidden');
                         coverageAnalysisSection.classList.remove('hidden');
+                        priorityAnalysisSection.classList.remove('hidden');
                     }
                 } else if (message.action === 'generateTests') {
                     updateTestStatus(message.status, message.message);
                 } else if (message.action === 'coverage') {
                     updateCoverageStatus(message.status, message.message);
+                } else if (message.action === 'priority') {
+                    updatePriorityStatus(message.status, message.message);
                 }
                 break;
             
@@ -259,15 +293,28 @@
                 coverageAnalysisSection.classList.remove('hidden');
                 break;
                 
+            case 'updatePriorityResults':
+                displayPriorityResults(message.results);
+                break;
+
+            case 'hidePriorityResults':
+                priorityResultsSection.classList.add('hidden');
+                priorityAnalysisSection.classList.remove('hidden');
+                break;
+                
             case 'updateProgress':
                 if (message.action === 'coverage') {
                     updateCoverageStatus('loading', message.message);
+                } else if (message.action === 'priority') {
+                    updatePriorityStatus('loading', message.message);
                 }
                 break;
                 
             case 'showError':
                 if (message.action === 'coverage') {
                     updateCoverageStatus('error', message.message);
+                } else if (message.action === 'priority') {
+                    updatePriorityStatus('error', message.message);
                 }
                 break;
                 
@@ -287,7 +334,6 @@
         
         if (status === 'success') {
             loginStatusMessage.className = 'status-message success';
-            // Clear the form
             usernameInput.value = '';
             passwordInput.value = '';
         } else if (status === 'error') {
@@ -308,16 +354,17 @@
             statusText.textContent = `Logged in as ${username || 'user'}`;
             loginSection.classList.add('hidden');
             generateTestsSection.classList.remove('hidden');
-            coverageAnalysisSection.classList.remove('hidden');
+            testAnalysisSection.classList.remove('hidden');
             isCurrentlyLoggedIn = true;
         } else {
             statusIndicator.className = 'status-indicator offline';
             statusText.textContent = 'Not logged in';
             loginSection.classList.remove('hidden');
             generateTestsSection.classList.add('hidden');
-            coverageAnalysisSection.classList.add('hidden');
+            testAnalysisSection.classList.add('hidden');
             testResultsSection.classList.add('hidden');
             coverageResultsSection.classList.add('hidden');
+            priorityResultsSection.classList.add('hidden');
             isCurrentlyLoggedIn = false;
         }
     }
@@ -337,10 +384,8 @@
     }
 
     function updateTestResults(tests) {
-        // Clear previous test results
         testResultsList.innerHTML = '';
         
-        // Add each test result
         tests.forEach(test => {
             const testItem = document.createElement('div');
             testItem.className = 'test-item';
@@ -373,7 +418,6 @@
             testResultsList.appendChild(testItem);
         });
         
-        // Show test results section
         testResultsSection.classList.remove('hidden');
         generateTestsSection.classList.add('hidden');
     }
@@ -391,14 +435,25 @@
             coverageStatusMessage.className = 'status-message';
         }
     }
+
+    function updatePriorityStatus(status, message) {
+        priorityStatusMessage.innerHTML = message;
+        
+        if (status === 'success') {
+            priorityStatusMessage.className = 'status-message success';
+        } else if (status === 'error') {
+            priorityStatusMessage.className = 'status-message error';
+        } else if (status === 'loading') {
+            priorityStatusMessage.className = 'status-message loading';
+        } else {
+            priorityStatusMessage.className = 'status-message';
+        }
+    }
     
-    // Coverage analysis functions
     function updateFilesList(listElement, files) {
-        // Clear any existing content
         listElement.innerHTML = '';
         
         if (files && files.length > 0) {
-            // Create file items
             files.forEach(file => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item';
@@ -406,7 +461,6 @@
                 listElement.appendChild(fileItem);
             });
         } else {
-            // Show "no files" message
             const noFiles = document.createElement('p');
             noFiles.className = 'info-text';
             noFiles.textContent = 'No files selected';
@@ -415,47 +469,106 @@
     }
 
     function displayCoverageResults(results) {
-        // Hide analysis section, show results section
-        coverageAnalysisSection.classList.add('hidden');
+        testAnalysisSection.classList.add('hidden');
         coverageResultsSection.classList.remove('hidden');
         
-        // Display summary
         displayCoverageSummary(results.summary);
-        
-        // Display recommendations
         displayRecommendations(results.summary.recommendations);
-        
-        // Display visualizations
         displayVisualizations(results.visualization_data);
-        
-        // Display file analysis
         displayFilesAnalysis(results.files_analysis);
-        
-        // Add download report button
         addDownloadReportButton();
         
-        // Clear status message
         coverageStatusMessage.className = 'status-message';
         coverageStatusMessage.innerHTML = '';
     }
 
+    function displayPriorityResults(results) {
+        testAnalysisSection.classList.add('hidden');
+        priorityResultsSection.classList.remove('hidden');
+        
+        displayPrioritySummary(results.summary);
+        displayTestPriorities(results.test_priorities);
+        displaySecurityVulnerabilities(results.security_vulnerabilities);
+        displayPriorityVisualizations(results.visualization_data);
+        displayPriorityRecommendations(results.recommendations);
+        
+        priorityStatusMessage.className = 'status-message';
+        priorityStatusMessage.innerHTML = '';
+    }
+
     function displayCoverageSummary(summary) {
-        // Clear existing content
         coverageSummary.innerHTML = '';
         
-        // Create summary heading
         const summaryHeading = document.createElement('h3');
         summaryHeading.textContent = 'Overall Coverage';
         coverageSummary.appendChild(summaryHeading);
         
-        // Get metrics
         const metrics = summary.overall_coverage;
         
-        // Create metric elements
         createCoverageMetric('Statement Coverage', metrics.statement_coverage, coverageSummary);
         createCoverageMetric('Branch Coverage', metrics.branch_coverage, coverageSummary);
         createCoverageMetric('Function Coverage', metrics.function_coverage, coverageSummary);
         createCoverageMetric('Condition Coverage', metrics.condition_coverage, coverageSummary);
+    }
+
+    function displayPrioritySummary(summary) {
+        prioritySummary.innerHTML = '';
+        
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'priority-header';
+        
+        const assessmentDiv = document.createElement('div');
+        assessmentDiv.className = 'priority-assessment';
+        
+        const assessmentTitle = document.createElement('h3');
+        assessmentTitle.textContent = 'Overall Assessment';
+        assessmentDiv.appendChild(assessmentTitle);
+        
+        const assessmentText = document.createElement('p');
+        assessmentText.textContent = summary.overall_assessment;
+        assessmentDiv.appendChild(assessmentText);
+        
+        headerDiv.appendChild(assessmentDiv);
+        
+        const statsDiv = document.createElement('div');
+        statsDiv.className = 'priority-stats';
+        
+        const statsTitle = document.createElement('h3');
+        statsTitle.textContent = 'Risk Statistics';
+        statsDiv.appendChild(statsTitle);
+        
+        const statsGrid = document.createElement('div');
+        statsGrid.className = 'stats-grid';
+        
+        createStatItem(statsGrid, 'High Risk Tests', summary.high_risk_count, 'high-risk');
+        createStatItem(statsGrid, 'Medium Risk Tests', summary.medium_risk_count, 'medium-risk');
+        createStatItem(statsGrid, 'Low Risk Tests', summary.low_risk_count, 'low-risk');
+        createStatItem(statsGrid, 'Security Issues', summary.security_vulnerability_count, 'security-risk');
+        createStatItem(statsGrid, 'Top Priority Tests', summary.top_priority_tests_count, 'top-priority');
+        
+        statsDiv.appendChild(statsGrid);
+        headerDiv.appendChild(statsDiv);
+        
+        const areasDiv = document.createElement('div');
+        areasDiv.className = 'critical-areas';
+        
+        const areasTitle = document.createElement('h3');
+        areasTitle.textContent = 'Critical Areas';
+        areasDiv.appendChild(areasTitle);
+        
+        const areasList = document.createElement('ul');
+        areasList.className = 'critical-areas-list';
+        
+        summary.critical_areas.forEach(area => {
+            const areaItem = document.createElement('li');
+            areaItem.textContent = area;
+            areasList.appendChild(areaItem);
+        });
+        
+        areasDiv.appendChild(areasList);
+        
+        prioritySummary.appendChild(headerDiv);
+        prioritySummary.appendChild(areasDiv);
     }
 
     function createCoverageMetric(name, metric, container) {
@@ -496,20 +609,35 @@
         container.appendChild(metricDiv);
     }
 
+    function createStatItem(container, label, value, className) {
+        const statItem = document.createElement('div');
+        statItem.className = `stat-item ${className}`;
+        
+        const statValue = document.createElement('div');
+        statValue.className = 'stat-value';
+        statValue.textContent = value;
+        
+        const statLabel = document.createElement('div');
+        statLabel.className = 'stat-label';
+        statLabel.textContent = label;
+        
+        statItem.appendChild(statValue);
+        statItem.appendChild(statLabel);
+        
+        container.appendChild(statItem);
+    }
+
     function displayRecommendations(recommendations) {
-        // Clear existing content
         coverageRecommendations.innerHTML = '';
         
         if (!recommendations || recommendations.length === 0) {
             return;
         }
         
-        // Create recommendations heading
         const heading = document.createElement('h3');
         heading.textContent = 'Recommendations';
         coverageRecommendations.appendChild(heading);
         
-        // Create list
         const list = document.createElement('ul');
         list.className = 'recommendations-list';
         
@@ -522,325 +650,148 @@
         coverageRecommendations.appendChild(list);
     }
 
+    function displayPriorityRecommendations(recommendations) {
+        priorityRecommendations.innerHTML = '';
+        
+        if (!recommendations || recommendations.length === 0) {
+            return;
+        }
+        
+        const header = document.createElement('h3');
+        header.textContent = 'Recommendations';
+        priorityRecommendations.appendChild(header);
+        
+        const list = document.createElement('ul');
+        list.className = 'recommendations-list';
+        
+        recommendations.forEach(recommendation => {
+            const item = document.createElement('li');
+            item.textContent = recommendation;
+            list.appendChild(item);
+        });
+        
+        priorityRecommendations.appendChild(list);
+    }
+
     function displayVisualizations(visualizationData) {
-        // Clear existing content
         coverageVisualization.innerHTML = '';
         
         if (!visualizationData) {
             return;
         }
         
-        // Create heading
         const heading = document.createElement('h3');
         heading.textContent = 'Coverage Visualizations';
         coverageVisualization.appendChild(heading);
         
-        // Display summary chart if available
         if (visualizationData.summary_chart_data && visualizationData.summary_chart_data.length > 0) {
             displaySummaryChart(visualizationData.summary_chart_data);
         }
         
-        // Display improvement potential chart if available
         if (visualizationData.improvement_potential_chart && visualizationData.improvement_potential_chart.length > 0) {
             displayImprovementPotentialChart(visualizationData.improvement_potential_chart);
         }
         
-        // Display missed test cases chart if available
         if (visualizationData.missed_test_cases_chart && visualizationData.missed_test_cases_chart.length > 0) {
             displayMissedTestCasesChart(visualizationData.missed_test_cases_chart);
         }
         
-        // Display heatmap data if available
         if (visualizationData.heatmap_data && visualizationData.heatmap_data.length > 0) {
             displayHeatmapData(visualizationData.heatmap_data);
         }
     }
-    
-    function displaySummaryChart(summaryChartData) {
-        const chartSection = document.createElement('div');
-        chartSection.className = 'visualization-section';
+
+    function displayPriorityVisualizations(visualizationData) {
+        priorityVisualization.innerHTML = '';
         
-        const chartTitle = document.createElement('h4');
-        chartTitle.textContent = 'Coverage by File';
-        chartSection.appendChild(chartTitle);
+        const header = document.createElement('h3');
+        header.textContent = 'Priority Visualizations';
+        priorityVisualization.appendChild(header);
         
-        // Create chart container
-        const chartContainer = document.createElement('div');
-        chartContainer.className = 'chart-container';
-        
-        // Create a table to display the chart data
-        const table = document.createElement('table');
-        table.className = 'coverage-chart-table';
-        
-        // Create header row
-        const headerRow = document.createElement('tr');
-        const headers = ['File', 'Statement', 'Branch', 'Function', 'Condition'];
-        
-        headers.forEach(headerText => {
-            const header = document.createElement('th');
-            header.textContent = headerText;
-            headerRow.appendChild(header);
-        });
-        
-        table.appendChild(headerRow);
-        
-        // Create data rows
-        summaryChartData.forEach(fileData => {
-            const row = document.createElement('tr');
-            
-            const fileCell = document.createElement('td');
-            fileCell.textContent = fileData.filename;
-            row.appendChild(fileCell);
-            
-            const statementCell = document.createElement('td');
-            statementCell.textContent = `${fileData.statement_coverage}%`;
-            statementCell.style.color = getCoverageColor(fileData.statement_coverage);
-            row.appendChild(statementCell);
-            
-            const branchCell = document.createElement('td');
-            branchCell.textContent = `${fileData.branch_coverage}%`;
-            branchCell.style.color = getCoverageColor(fileData.branch_coverage);
-            row.appendChild(branchCell);
-            
-            const functionCell = document.createElement('td');
-            functionCell.textContent = `${fileData.function_coverage}%`;
-            functionCell.style.color = getCoverageColor(fileData.function_coverage);
-            row.appendChild(functionCell);
-            
-            const conditionCell = document.createElement('td');
-            conditionCell.textContent = `${fileData.condition_coverage}%`;
-            conditionCell.style.color = getCoverageColor(fileData.condition_coverage);
-            row.appendChild(conditionCell);
-            
-            table.appendChild(row);
-        });
-        
-        chartContainer.appendChild(table);
-        chartSection.appendChild(chartContainer);
-        coverageVisualization.appendChild(chartSection);
-    }
-    
-    function displayImprovementPotentialChart(improvementData) {
-        const chartSection = document.createElement('div');
-        chartSection.className = 'visualization-section';
-        
-        const chartTitle = document.createElement('h4');
-        chartTitle.textContent = 'Improvement Potential';
-        chartSection.appendChild(chartTitle);
-        
-        // Create chart container
-        const chartContainer = document.createElement('div');
-        chartContainer.className = 'chart-container';
-        
-        // Create improvement chart as a table
-        const table = document.createElement('table');
-        table.className = 'coverage-chart-table';
-        
-        // Create header row
-        const headerRow = document.createElement('tr');
-        const headers = ['File', 'Current Coverage', 'Potential Coverage', 'Improvement'];
-        
-        headers.forEach(headerText => {
-            const header = document.createElement('th');
-            header.textContent = headerText;
-            headerRow.appendChild(header);
-        });
-        
-        table.appendChild(headerRow);
-        
-        // Create data rows
-        improvementData.forEach(fileData => {
-            const row = document.createElement('tr');
-            
-            const fileCell = document.createElement('td');
-            fileCell.textContent = fileData.filename;
-            row.appendChild(fileCell);
-            
-            const currentCell = document.createElement('td');
-            currentCell.textContent = `${fileData.current_overall_coverage}%`;
-            currentCell.style.color = getCoverageColor(fileData.current_overall_coverage);
-            row.appendChild(currentCell);
-            
-            const potentialCell = document.createElement('td');
-            potentialCell.textContent = `${fileData.potential_coverage}%`;
-            potentialCell.style.color = getCoverageColor(fileData.potential_coverage);
-            row.appendChild(potentialCell);
-            
-            const improvementCell = document.createElement('td');
-            improvementCell.textContent = `+${fileData.improvement_percentage}%`;
-            improvementCell.style.color = '#66BB6A'; // Green color for improvements
-            row.appendChild(improvementCell);
-            
-            table.appendChild(row);
-        });
-        
-        chartContainer.appendChild(table);
-        chartSection.appendChild(chartContainer);
-        coverageVisualization.appendChild(chartSection);
-    }
-    
-    function displayMissedTestCasesChart(missedCasesData) {
-        const chartSection = document.createElement('div');
-        chartSection.className = 'visualization-section';
-        
-        const chartTitle = document.createElement('h4');
-        chartTitle.textContent = 'Missed Test Cases';
-        chartSection.appendChild(chartTitle);
-        
-        // Create chart container
-        const chartContainer = document.createElement('div');
-        chartContainer.className = 'chart-container';
-        
-        // Create missed test cases chart as a table
-        const table = document.createElement('table');
-        table.className = 'coverage-chart-table';
-        
-        // Create header row
-        const headerRow = document.createElement('tr');
-        const headers = ['File', 'Missed Cases Count', 'Categories'];
-        
-        headers.forEach(headerText => {
-            const header = document.createElement('th');
-            header.textContent = headerText;
-            headerRow.appendChild(header);
-        });
-        
-        table.appendChild(headerRow);
-        
-        // Create data rows
-        missedCasesData.forEach(fileData => {
-            const row = document.createElement('tr');
-            
-            const fileCell = document.createElement('td');
-            fileCell.textContent = fileData.filename;
-            row.appendChild(fileCell);
-            
-            const countCell = document.createElement('td');
-            countCell.textContent = fileData.count;
-            row.appendChild(countCell);
-            
-            const categoriesCell = document.createElement('td');
-            const categoriesList = document.createElement('ul');
-            categoriesList.className = 'missed-cases-categories';
-            
-            // Convert categories object to list items
-            Object.entries(fileData.categories).forEach(([category, count]) => {
-                const item = document.createElement('li');
-                item.textContent = `${category}: ${count}`;
-                categoriesList.appendChild(item);
-            });
-            
-            categoriesCell.appendChild(categoriesList);
-            row.appendChild(categoriesCell);
-            
-            table.appendChild(row);
-        });
-        
-        chartContainer.appendChild(table);
-        chartSection.appendChild(chartContainer);
-        coverageVisualization.appendChild(chartSection);
-    }
-    
-    function displayHeatmapData(heatmapData) {
-        const chartSection = document.createElement('div');
-        chartSection.className = 'visualization-section';
-        
-        const chartTitle = document.createElement('h4');
-        chartTitle.textContent = 'Coverage Hotspots';
-        chartSection.appendChild(chartTitle);
-        
-        // Create hotspots container
-        const hotspotsContainer = document.createElement('div');
-        hotspotsContainer.className = 'hotspots-container';
-        
-        // Create heatmap display for each file
-        heatmapData.forEach(fileData => {
-            const fileSection = document.createElement('div');
-            fileSection.className = 'file-hotspots';
-            
-            const fileName = document.createElement('h5');
-            fileName.textContent = fileData.filepath;
-            fileSection.appendChild(fileName);
-            
-            if (fileData.hotspots && fileData.hotspots.length > 0) {
-                const hotspotsList = document.createElement('ul');
-                hotspotsList.className = 'hotspots-list';
-                
-                fileData.hotspots.forEach(hotspot => {
-                    const item = document.createElement('li');
-                    const hotspotScore = document.createElement('span');
-                    hotspotScore.className = 'hotspot-score';
-                    hotspotScore.textContent = hotspot.coverage_score;
-                    hotspotScore.style.backgroundColor = getCoverageColor(hotspot.coverage_score);
-                    
-                    item.appendChild(hotspotScore);
-                    item.appendChild(document.createTextNode(` Line ${hotspot.line}: ${hotspot.description}`));
-                    hotspotsList.appendChild(item);
-                });
-                
-                fileSection.appendChild(hotspotsList);
-            } else {
-                const noHotspots = document.createElement('p');
-                noHotspots.textContent = 'No hotspots found';
-                fileSection.appendChild(noHotspots);
-            }
-            
-            hotspotsContainer.appendChild(fileSection);
-        });
-        
-        chartSection.appendChild(hotspotsContainer);
-        coverageVisualization.appendChild(chartSection);
-    }
-    
-    // Helper function to get color based on coverage percentage
-    function getCoverageColor(percentage) {
-        if (percentage >= 80) {
-            return '#28a745'; // Green for good coverage
-        } else if (percentage >= 50) {
-            return '#ffc107'; // Yellow for moderate coverage
-        } else {
-            return '#dc3545'; // Red for poor coverage
-        }
-    }
-    
-    function addDownloadReportButton() {
-        // Check if button already exists
-        let downloadButton = document.getElementById('download-report-button');
-        if (downloadButton) {
-            return; // Button already exists
+        if (!visualizationData) {
+            const emptyMessage = document.createElement('p');
+            emptyMessage.textContent = 'No visualization data available.';
+            priorityVisualization.appendChild(emptyMessage);
+            return;
         }
         
-        // Create download button
-        downloadButton = document.createElement('button');
-        downloadButton.id = 'download-report-button';
-        downloadButton.className = 'primary-button download-button';
-        downloadButton.textContent = 'Download PDF Report';
-        downloadButton.addEventListener('click', downloadReportAsPDF);
+        const visualizationContainer = document.createElement('div');
+        visualizationContainer.className = 'priority-visualization-container';
         
-        // Add button to the button group
-        const buttonGroup = coverageResultsSection.querySelector('.button-group');
-        buttonGroup.insertBefore(downloadButton, buttonGroup.firstChild);
+        if (visualizationData.priority_distribution) {
+            const distributionSection = document.createElement('div');
+            distributionSection.className = 'visualization-section';
+            
+            const distributionTitle = document.createElement('h4');
+            distributionTitle.textContent = 'Test Priority Distribution';
+            distributionSection.appendChild(distributionTitle);
+            
+            const distributionChart = createPriorityDistributionChart(visualizationData.priority_distribution);
+            distributionSection.appendChild(distributionChart);
+            
+            visualizationContainer.appendChild(distributionSection);
+        }
+        
+        if (visualizationData.risk_category_distribution) {
+            const categorySection = document.createElement('div');
+            categorySection.className = 'visualization-section';
+            
+            const categoryTitle = document.createElement('h4');
+            categoryTitle.textContent = 'Risk Category Distribution';
+            categorySection.appendChild(categoryTitle);
+            
+            const categoryChart = createRiskCategoryChart(visualizationData.risk_category_distribution);
+            categorySection.appendChild(categoryChart);
+            
+            visualizationContainer.appendChild(categorySection);
+        }
+        
+        if (visualizationData.critical_tests_by_module) {
+            const moduleSection = document.createElement('div');
+            moduleSection.className = 'visualization-section';
+            
+            const moduleTitle = document.createElement('h4');
+            moduleTitle.textContent = 'Critical Tests by Module';
+            moduleSection.appendChild(moduleTitle);
+            
+            const moduleChart = createModuleDistributionChart(visualizationData.critical_tests_by_module);
+            moduleSection.appendChild(moduleChart);
+            
+            visualizationContainer.appendChild(moduleSection);
+        }
+        
+        if (visualizationData.security_impact_scores && visualizationData.security_impact_scores.length > 0) {
+            const securitySection = document.createElement('div');
+            securitySection.className = 'visualization-section';
+            
+            const securityTitle = document.createElement('h4');
+            securityTitle.textContent = 'Security Impact Scores';
+            securitySection.appendChild(securityTitle);
+            
+            const securityChart = createSecurityImpactChart(visualizationData.security_impact_scores);
+            securitySection.appendChild(securityChart);
+            
+            visualizationContainer.appendChild(securitySection);
+        }
+        
+        priorityVisualization.appendChild(visualizationContainer);
     }
 
     function displayFilesAnalysis(filesAnalysis) {
-        // Clear existing content
         filesAnalysis.innerHTML = '';
         
         if (!filesAnalysis || filesAnalysis.length === 0) {
             return;
         }
         
-        // Create heading
         const heading = document.createElement('h3');
         heading.textContent = 'Files Analysis';
         filesAnalysis.appendChild(heading);
         
-        // Create file analysis elements
         filesAnalysis.forEach(fileAnalysis => {
             const fileDiv = document.createElement('div');
             fileDiv.className = 'file-analysis';
             
-            // Create header
             const header = document.createElement('div');
             header.className = 'file-analysis-header';
             
@@ -856,11 +807,9 @@
             
             fileDiv.appendChild(header);
             
-            // Create content (initially hidden)
             const content = document.createElement('div');
             content.className = 'file-analysis-content hidden';
             
-            // Add metrics
             const metricsSection = document.createElement('div');
             metricsSection.className = 'file-analysis-section';
             
@@ -875,7 +824,6 @@
             
             content.appendChild(metricsSection);
             
-            // Add uncovered areas if they exist
             if (fileAnalysis.uncovered_lines && fileAnalysis.uncovered_lines.length > 0) {
                 content.appendChild(createListSection('Uncovered Lines', fileAnalysis.uncovered_lines));
             }
@@ -892,7 +840,6 @@
                 content.appendChild(createListSection('Missed Edge Cases', fileAnalysis.missed_edge_cases));
             }
             
-            // Add test improvement suggestions
             if (fileAnalysis.test_improvement_suggestions && fileAnalysis.test_improvement_suggestions.length > 0) {
                 const suggestionsSection = document.createElement('div');
                 suggestionsSection.className = 'file-analysis-section';
@@ -923,7 +870,6 @@
                 content.appendChild(suggestionsSection);
             }
             
-            // Add risk assessment
             if (fileAnalysis.risk_assessment) {
                 const riskSection = document.createElement('div');
                 riskSection.className = 'risk-assessment';
@@ -940,7 +886,6 @@
             
             fileDiv.appendChild(content);
             
-            // Add toggle functionality
             toggleButton.addEventListener('click', () => {
                 if (content.classList.contains('hidden')) {
                     content.classList.remove('hidden');
@@ -974,5 +919,21 @@
         
         section.appendChild(list);
         return section;
+    }
+
+    function addDownloadReportButton() {
+        let downloadButton = document.getElementById('download-report-button');
+        if (downloadButton) {
+            return;
+        }
+        
+        downloadButton = document.createElement('button');
+        downloadButton.id = 'download-report-button';
+        downloadButton.className = 'primary-button download-button';
+        downloadButton.textContent = 'Download PDF Report';
+        downloadButton.addEventListener('click', downloadReportAsPDF);
+        
+        const buttonGroup = coverageResultsSection.querySelector('.button-group');
+        buttonGroup.insertBefore(downloadButton, buttonGroup.firstChild);
     }
 })();
