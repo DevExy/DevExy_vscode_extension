@@ -1,0 +1,114 @@
+{
+  "name": "devexy",
+  "displayName": "DevExy",
+  "description": "AI-powered testing and requirements handling",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "icon": "logo.png",
+  "categories": [
+    "Other",
+    "Testing"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devexy-sidebar",
+          "title": "DevExy",
+          "icon": "logo.png"
+        }
+      ]
+    },
+    "views": {
+      "devexy-sidebar": [
+        {
+          "type": "webview",
+          "id": "devexy.sidebar",
+          "name": "DevExy"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "devexy.showSidebar",
+        "title": "DevExy: Show Sidebar",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "devexy.helloWorld",
+        "title": "DevExy: Hello World"
+      },
+      {
+        "command": "devexy.login",
+        "title": "DevExy: Login",
+        "icon": "$(account)"
+      },
+      {
+        "command": "devexy.logout",
+        "title": "DevExy: Logout",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "devexy.generateTests",
+        "title": "DevExy: Generate Tests",
+        "icon": "$(beaker)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "devexy.logout",
+          "when": "view == devexy.sidebar",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceLangId",
+          "command": "devexy.generateTests",
+          "group": "devexy"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceLangId",
+          "command": "devexy.generateTests",
+          "group": "devexy"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "yarn run compile-tests && yarn run compile && yarn run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.99.0",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.2",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "axios": "^1.8.4"
+  }
+}

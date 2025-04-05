@@ -1,0 +1,238 @@
+:root {
+    --brand-color: #007ACC;
+    --brand-light: #3399FF;
+    --brand-dark: #005A99;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --warning-color: #ffc107;
+    --bg-light: var(--vscode-editor-background);
+    --text-color: var(--vscode-editor-foreground);
+    --border-color: var(--vscode-panel-border);
+}
+
+body {
+    font-family: var(--vscode-font-family);
+    padding: 0;
+    margin: 0;
+    color: var(--text-color);
+    background-color: var(--bg-light);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    font-size: 14px;
+}
+
+header {
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--brand-color);
+    color: white;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+}
+
+h1 {
+    font-size: 18px;
+    margin: 0;
+}
+
+h2 {
+    font-size: 16px;
+    margin: 0 0 12px 0;
+    color: var(--brand-color);
+}
+
+section {
+    padding: 15px;
+}
+
+.panel {
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+input[type="text"],
+input[type="password"],
+select {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 3px;
+    font-family: var(--vscode-font-family);
+}
+
+input:focus,
+select:focus {
+    outline: 1px solid var(--brand-light);
+}
+
+button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: var(--vscode-font-family);
+}
+
+.primary-button {
+    background-color: var(--brand-color);
+    color: white;
+}
+
+.primary-button:hover {
+    background-color: var(--brand-dark);
+}
+
+.secondary-button {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 15px;
+}
+
+.status-message {
+    margin: 10px 0;
+    padding: 8px;
+    border-radius: 3px;
+    min-height: 20px;
+}
+
+.status-message.error {
+    border-left: 3px solid var(--error-color);
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--error-color);
+}
+
+.status-message.success {
+    border-left: 3px solid var(--success-color);
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--success-color);
+}
+
+.status-message.loading {
+    border-left: 3px solid var(--brand-color);
+    background-color: rgba(0, 122, 204, 0.1);
+    color: var(--brand-color);
+    display: flex;
+    align-items: center;
+}
+
+.spinner {
+    margin-right: 8px;
+    border: 2px solid rgba(0, 122, 204, 0.3);
+    border-radius: 50%;
+    border-top: 2px solid var(--brand-color);
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#status-section {
+    padding: 8px 15px;
+    background-color: var(--vscode-editorWidget-background);
+}
+
+#login-status {
+    display: flex;
+    align-items: center;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.status-indicator.online {
+    background-color: var(--success-color);
+}
+
+.status-indicator.offline {
+    background-color: var(--error-color);
+}
+
+.status-text {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.info-text {
+    font-size: 12px;
+    margin-bottom: 10px;
+    color: var(--vscode-descriptionForeground);
+}
+
+footer {
+    padding: 8px 15px;
+    font-size: 11px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    background-color: var(--vscode-statusBar-background);
+    margin-top: auto;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Test results styling */
+.test-item {
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.test-header {
+    padding: 8px;
+    background-color: var(--vscode-editor-lineHighlightBackground);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.test-path {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.test-preview-btn {
+    background-color: transparent;
+    color: var(--brand-color);
+    border: 1px solid var(--brand-color);
+    padding: 3px 8px;
+    font-size: 11px;
+}
