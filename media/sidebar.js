@@ -7,7 +7,8 @@
     const generateSection = document.getElementById('generate-tests-section');
     const resultsSection = document.getElementById('test-results-section');
     const loginButton = document.getElementById('login-button');
-    const generateButton = document.getElementById('generate-button');
+    const generateUnitButton = document.getElementById('generate-unit-button');
+    const generateIntegrationButton = document.getElementById('generate-integration-button');
     const applyButton = document.getElementById('apply-button');
     const cancelButton = document.getElementById('cancel-button');
     const usernameInput = document.getElementById('username');
@@ -46,7 +47,7 @@
         });
     });
     
-    generateButton.addEventListener('click', () => {
+    generateUnitButton.addEventListener('click', () => {
         const testDir = testDirectoryInput.value.trim();
         
         if (!testDir) {
@@ -56,7 +57,23 @@
         
         vscode.postMessage({ 
             command: 'generateTests',
-            testDir
+            testDir,
+            testType: 'unit'
+        });
+    });
+    
+    generateIntegrationButton.addEventListener('click', () => {
+        const testDir = testDirectoryInput.value.trim();
+        
+        if (!testDir) {
+            showStatusMessage(testStatusMessage, 'error', 'Test directory is required');
+            return;
+        }
+        
+        vscode.postMessage({ 
+            command: 'generateTests',
+            testDir,
+            testType: 'integration'
         });
     });
     
@@ -150,13 +167,16 @@
         } else if (action === 'generateTests') {
             if (status === 'loading') {
                 showStatusMessage(testStatusMessage, 'loading', statusMsg);
-                generateButton.disabled = true;
+                generateUnitButton.disabled = true;
+                generateIntegrationButton.disabled = true;
             } else if (status === 'success') {
                 showStatusMessage(testStatusMessage, 'success', statusMsg);
-                generateButton.disabled = false;
+                generateUnitButton.disabled = false;
+                generateIntegrationButton.disabled = false;
             } else if (status === 'error') {
                 showStatusMessage(testStatusMessage, 'error', statusMsg);
-                generateButton.disabled = false;
+                generateUnitButton.disabled = false;
+                generateIntegrationButton.disabled = false;
             }
         }
     }

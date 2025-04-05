@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { getAuthToken } from '../auth';
 import { generateTests } from '../testGeneration';
-import { getNonce } from '../utils';
+import { generateIntegrationTests } from '../integrationTestGeneration';
+import { getNonce, getExtensionContext } from '../utils';
 
 export class DevexySidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'devexy.sidebar';
@@ -42,8 +43,8 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                     return;
                 
                 case 'generateTests':
-                    this._log('User initiated test generation');
-                    await this._generateTests(message.testDir);
+                    this._log(`User initiated ${message.testType || 'unit'} test generation`);
+                    await this._generateTests(message.testDir, message.testType || 'unit');
                     return;
                     
                 case 'checkLoginStatus':
@@ -52,6 +53,16 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 
                 case 'logOutput':
                     this._log(message.text);
+                    return;
+                    
+                case 'applyTests':
+                    this._log('Applying generated tests');
+                    await vscode.commands.executeCommand('devexy.applyTests', message.tests);
+                    return;
+                    
+                case 'previewTest':
+                    this._log(`Previewing test: ${message.test.filepath}`);
+                    await vscode.commands.executeCommand('devexy.previewTest', message.test);
                     return;
             }
         });
@@ -71,7 +82,7 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             });
             
             // Attempt to log in
-            const context = vscode.ExtensionContext.getExtensionContext();
+            const context = getExtensionContext();
             
             // Get login credentials
             if (!username) {
@@ -121,18 +132,18 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
         }
     }
     
-    private async _generateTests(testDir?: string) {
+    private async _generateTests(testDir?: string, testType: 'unit' | 'integration' = 'unit') {
         try {
             // Update UI to loading state
             this._view?.webview.postMessage({ 
                 command: 'updateStatus',
                 status: 'loading',
                 action: 'generateTests',
-                message: 'Preparing test generation...' 
+                message: `Preparing ${testType} test generation...` 
             });
             
             // Get context for token
-            const context = vscode.ExtensionContext.getExtensionContext();
+            const context = getExtensionContext();
             
             // Get files to process
             const files = await this._getFilesToProcess();
@@ -152,22 +163,38 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 command: 'updateStatus',
                 status: 'loading',
                 action: 'generateTests',
-                message: `Generating tests for ${files.length} file(s)...` 
+                message: `Generating ${testType} tests for ${files.length} file(s)...` 
             });
             
             const testDirDefault = testDir || 'tests';
             
-            // Run test generation
-            const results = await generateTests(context, files, testDirDefault, (progress: string) => {
-                // Pass progress updates to the webview
-                this._view?.webview.postMessage({ 
-                    command: 'updateProgress',
-                    action: 'generateTests',
-                    message: progress
+            let results;
+            
+            // Run test generation based on type
+            if (testType === 'integration') {
+                results = await generateIntegrationTests(context, files, testDirDefault, (progress: string) => {
+                    // Pass progress updates to the webview
+                    this._view?.webview.postMessage({ 
+                        command: 'updateProgress',
+                        action: 'generateTests',
+                        message: progress
+                    });
+                    
+                    this._log(progress);
                 });
-                
-                this._log(progress);
-            });
+            } else {
+                // Default to unit test generation
+                results = await generateTests(context, files, testDirDefault, (progress: string) => {
+                    // Pass progress updates to the webview
+                    this._view?.webview.postMessage({ 
+                        command: 'updateProgress',
+                        action: 'generateTests',
+                        message: progress
+                    });
+                    
+                    this._log(progress);
+                });
+            }
             
             // Update UI to success state
             this._view?.webview.postMessage({ 
@@ -176,7 +203,7 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 tests: results
             });
             
-            this._log(`Generated ${results.length} test file(s)`);
+            this._log(`Generated ${results.length} ${testType} test file(s)`);
             
         } catch (error: any) {
             this._log(`Test generation error: ${error.message || 'Unknown error'}`);
@@ -193,7 +220,7 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
     
     private async _checkLoginStatus() {
         try {
-            const context = vscode.ExtensionContext.getExtensionContext();
+            const context = getExtensionContext();
             // Import isLoggedIn to avoid circular dependencies
             const { isLoggedIn } = require('../auth');
             const loggedIn = await isLoggedIn(context);
@@ -295,13 +322,16 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
             
             <section id="generate-tests-section" class="panel">
                 <h2>Generate Tests</h2>
-                <p class="info-text">Generate unit tests for selected files or the current file.</p>
+                <p class="info-text">Generate unit or integration tests for selected files or the current file.</p>
                 <div class="form-group">
                     <label for="test-directory">Test Directory</label>
                     <input type="text" id="test-directory" value="tests" placeholder="tests">
                 </div>
                 <div id="test-status-message" class="status-message"></div>
-                <button id="generate-button" class="primary-button">Generate Tests</button>
+                <div class="button-group">
+                    <button id="generate-unit-button" class="primary-button">Generate Unit Tests</button>
+                    <button id="generate-integration-button" class="primary-button">Generate Integration Tests</button>
+                </div>
             </section>
             
             <section id="test-results-section" class="panel hidden">

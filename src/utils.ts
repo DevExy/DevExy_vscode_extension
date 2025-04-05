@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 export function getNonce() {
     let text = '';
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -8,24 +10,15 @@ export function getNonce() {
 }
 
 // Helper function for ExtensionContext access
-import * as vscode from 'vscode';
 let globalExtensionContext: vscode.ExtensionContext;
 
 export function setExtensionContext(context: vscode.ExtensionContext) {
     globalExtensionContext = context;
 }
 
-declare module 'vscode' {
-    // Add a static method to the ExtensionContext class
-    export namespace ExtensionContext {
-        export function getExtensionContext(): vscode.ExtensionContext;
-    }
-}
-
-// Add the static method implementation
-vscode.ExtensionContext.getExtensionContext = () => {
+export function getExtensionContext(): vscode.ExtensionContext {
     if (!globalExtensionContext) {
         throw new Error('Extension context not initialized');
     }
     return globalExtensionContext;
-};
+}

@@ -197,7 +197,8 @@ export async function applyGeneratedTests(tests: GeneratedTest[]): Promise<{ suc
     return { success, errors };
 }
 
-async function ensureDirectoryExists(dirPath: string): Promise<void> {
+// Export the utility function so it can be used in integrationTestGeneration.ts
+export async function ensureDirectoryExists(dirPath: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         fs.mkdir(dirPath, { recursive: true }, (err) => {
             if (err) {

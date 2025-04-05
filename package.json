@@ -25,7 +25,7 @@
     },
     "views": {
       "devexy-sidebar": [
-        {
+        { "icon": "logo.png", 
           "type": "webview",
           "id": "devexy.sidebar",
           "name": "DevExy"
