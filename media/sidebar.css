@@ -963,3 +963,258 @@ footer {
     margin-bottom: 15px;
     padding-bottom: 5px;
 }
+
+/* Requirements Management styles */
+.file-info {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    font-size: 12px;
+    background-color: var(--vscode-editor-background);
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    margin-right: 5px;
+}
+
+.code-container {
+    position: relative;
+    margin-top: 8px;
+}
+
+.code-block {
+    width: 100%;
+    max-height: 200px;
+    overflow: auto;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    background-color: var(--vscode-editor-background);
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+.icon-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+}
+
+.icon-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.copy-icon {
+    font-size: 14px;
+}
+
+.requirements-summary, .optimization-summary {
+    margin-bottom: 20px;
+}
+
+.summary-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.summary-stats {
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    border-radius: 3px;
+}
+
+.summary-stats h3 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--brand-color);
+}
+
+.dependency-item {
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.dependency-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background-color: var(--vscode-editor-lineHighlightBackground);
+}
+
+.dependency-name {
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.dependency-version {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.dependency-content {
+    padding: 10px;
+    font-size: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.dependency-metric {
+    margin-bottom: 6px;
+}
+
+.dependency-metric-name {
+    font-weight: 500;
+    margin-bottom: 3px;
+}
+
+.impact-high {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.impact-medium {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.impact-low {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.optimization-change {
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.change-header {
+    padding: 8px;
+    background-color: var(--vscode-editor-lineHighlightBackground);
+}
+
+.change-package {
+    font-weight: 500;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.change-versions {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.version-arrow {
+    margin: 0 8px;
+    color: var(--brand-color);
+}
+
+.change-content {
+    padding: 10px;
+    font-size: 12px;
+}
+
+.change-reason {
+    margin-bottom: 8px;
+}
+
+.change-impact {
+    margin-bottom: 8px;
+}
+
+.impact-item {
+    margin-bottom: 5px;
+    display: flex;
+}
+
+.impact-label {
+    font-weight: 500;
+    margin-right: 6px;
+    min-width: 80px;
+}
+
+.code-references {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.code-reference-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 5px 0 0 0;
+}
+
+.code-reference-list li {
+    margin-bottom: 3px;
+}
+
+.improvement-section {
+    margin-bottom: 15px;
+}
+
+.improvement-section h3 {
+    font-size: 14px;
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: var(--brand-color);
+}
+
+.improvement-metric {
+    margin-bottom: 8px;
+}
+
+.improvement-metric-name {
+    font-weight: 500;
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.improvement-metric-value {
+    font-size: 13px;
+    color: #28a745;
+    font-weight: bold;
+}
+
+.key-improvements {
+    margin-top: 5px;
+}
+
+.key-improvements-list {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 12px;
+}
+
+.key-improvements-list li {
+    margin-bottom: 3px;
+}

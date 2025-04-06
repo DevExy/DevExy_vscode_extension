@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import axios from 'axios';
 import { getAuthToken } from '../auth';
 import { generateTests } from '../testGeneration';
 import { generateIntegrationTests } from '../integrationTestGeneration';
@@ -14,7 +15,10 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
     private _channel: vscode.OutputChannel;
     private _selectedSourceFiles: vscode.Uri[] = [];
     private _selectedTestFiles: vscode.Uri[] = [];
+    private _selectedSourceFilesForRequirements: vscode.Uri[] = [];
     private _criticalityContext: string = "";
+    private _selectedRequirementsFile: vscode.Uri | null = null;
+    private _requirementsContent: string = "";
 
     constructor(extensionUri: vscode.Uri, channel: vscode.OutputChannel) {
         this._extensionUri = extensionUri;
@@ -37,7 +41,7 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-        webviewView.webview.onDidReceiveMessage(async message => {
+        webviewView.webview.onDidReceiveMessage(async (message) => {
             switch (message.command) {
                 case 'login':
                     this._log('User initiated login');
@@ -102,6 +106,58 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 case 'downloadCoverageReport':
                     await this._generatePdfReport();
                     return;
+
+                case 'selectRequirementsFile':
+                    await this._selectRequirementsFile();
+                    break;
+
+                case 'selectSourceFilesForRequirements':
+                    await this._selectSourceFilesForRequirements();
+                    break;
+
+                case 'analyzeRequirements':
+                    await this._analyzeRequirements(message.description || 'Analyze requirements file');
+                    break;
+
+                case 'optimizeRequirements':
+                    await this._optimizeRequirements(
+                        message.goals || ['memory', 'performance', 'security'],
+                        message.keepDependencies || [],
+                        message.description || 'Optimize requirements file'
+                    );
+                    break;
+
+                case 'closeRequirementsAnalysis':
+                    webviewView.webview.postMessage({ command: 'hideRequirementsAnalysisResults' });
+                    break;
+
+                case 'closeRequirementsOptimization':
+                    webviewView.webview.postMessage({ command: 'hideRequirementsOptimizationResults' });
+                    break;
+
+                case 'copyToClipboard':
+                    if (message.content) {
+                        await vscode.env.clipboard.writeText(message.content);
+                        webviewView.webview.postMessage({ command: 'clipboardSuccess' });
+                    }
+                    break;
+
+                case 'saveOptimizedRequirements':
+                    if (message.content) {
+                        const saveUri = await vscode.window.showSaveDialog({
+                            filters: {
+                                'Requirements Files': ['txt', 'requirements']
+                            },
+                            saveLabel: 'Save Optimized Requirements'
+                        });
+
+                        if (saveUri) {
+                            const data = Buffer.from(message.content, 'utf8');
+                            await vscode.workspace.fs.writeFile(saveUri, data);
+                            vscode.window.showInformationMessage(`Requirements saved to ${saveUri.fsPath}`);
+                        }
+                    }
+                    break;
             }
         });
 
@@ -533,6 +589,221 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    private async _selectRequirementsFile() {
+        try {
+            const files = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                openLabel: 'Select Requirements File',
+                filters: {
+                    'Requirements Files': ['txt', 'pip', 'requirements']
+                }
+            });
+
+            if (files && files.length > 0) {
+                const fileUri = files[0];
+                this._selectedRequirementsFile = fileUri;
+                
+                const content = await vscode.workspace.fs.readFile(fileUri);
+                this._requirementsContent = Buffer.from(content).toString('utf8');
+                
+                this._view?.webview.postMessage({
+                    command: 'updateRequirementsFile',
+                    filepath: vscode.workspace.asRelativePath(fileUri),
+                    content: this._requirementsContent
+                });
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error selecting requirements file: ${error}`);
+        }
+    }
+
+    private async _selectSourceFilesForRequirements() {
+        try {
+            const files = await vscode.window.showOpenDialog({
+                canSelectMany: true,
+                openLabel: 'Select Source Files for Requirements Analysis',
+                filters: {
+                    'Source Files': ['py', 'js', 'ts', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php']
+                }
+            });
+
+            if (files && files.length > 0) {
+                this._selectedSourceFilesForRequirements = files;
+                
+                const filePaths = files.map(file => vscode.workspace.asRelativePath(file));
+                
+                this._view?.webview.postMessage({
+                    command: 'updateSourceFilesForRequirements',
+                    files: filePaths
+                });
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error selecting source files: ${error}`);
+        }
+    }
+
+    private async _analyzeRequirements(description: string) {
+        if (!this._selectedRequirementsFile) {
+            vscode.window.showErrorMessage('Please select a requirements file first');
+            this._view?.webview.postMessage({
+                command: 'updateRequirementsAnalysisStatus',
+                status: 'error',
+                message: 'Please select a requirements file first'
+            });
+            return;
+        }
+        
+        try {
+            this._view?.webview.postMessage({
+                command: 'updateRequirementsAnalysisStatus',
+                status: 'loading',
+                message: 'Analyzing requirements file...'
+            });
+            
+            // Prepare source files content
+            const sourceFilesContent = await Promise.all(
+                this._selectedSourceFilesForRequirements.map(async (file) => {
+                    const content = await vscode.workspace.fs.readFile(file);
+                    return {
+                        filepath: vscode.workspace.asRelativePath(file),
+                        content: Buffer.from(content).toString('utf8')
+                    };
+                })
+            );
+            
+            // Get the token from context
+            const token = await getAuthToken(getExtensionContext());
+            if (!token) {
+                throw new Error('Authentication required. Please log in.');
+            }
+            
+            // Prepare request data
+            const requestData = {
+                requirements_content: {
+                    content: this._requirementsContent,
+                    filepath: vscode.workspace.asRelativePath(this._selectedRequirementsFile)
+                },
+                source_files: sourceFilesContent.length > 0 ? sourceFilesContent : undefined,
+                description: description
+            };
+            
+            // Make API request
+            const response = await axios.post(
+                'https://devexy-backend.azurewebsites.net/requirements/analyze',
+                requestData,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 30000  // 30 seconds timeout
+                }
+            );
+            
+            // Send results to webview
+            this._view?.webview.postMessage({
+                command: 'requirementsAnalysisResults',
+                results: response.data
+            });
+            
+        } catch (error) {
+            let errorMessage = 'Failed to analyze requirements file';
+            if (axios.isAxiosError(error)) {
+                errorMessage = error.response?.data?.detail || error.message;
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            
+            this._view?.webview.postMessage({
+                command: 'updateRequirementsAnalysisStatus',
+                status: 'error',
+                message: errorMessage
+            });
+        }
+    }
+
+    private async _optimizeRequirements(goals: string[], keepDependencies: string[], description: string) {
+        if (!this._selectedRequirementsFile) {
+            vscode.window.showErrorMessage('Please select a requirements file first');
+            this._view?.webview.postMessage({
+                command: 'updateRequirementsOptimizationStatus',
+                status: 'error',
+                message: 'Please select a requirements file first'
+            });
+            return;
+        }
+        
+        try {
+            this._view?.webview.postMessage({
+                command: 'updateRequirementsOptimizationStatus',
+                status: 'loading',
+                message: 'Optimizing requirements file...'
+            });
+            
+            // Prepare source files content
+            const sourceFilesContent = await Promise.all(
+                this._selectedSourceFilesForRequirements.map(async (file) => {
+                    const content = await vscode.workspace.fs.readFile(file);
+                    return {
+                        filepath: vscode.workspace.asRelativePath(file),
+                        content: Buffer.from(content).toString('utf8')
+                    };
+                })
+            );
+            
+            // Get the token from context
+            const token = await getAuthToken(getExtensionContext());
+            if (!token) {
+                throw new Error('Authentication required. Please log in.');
+            }
+            
+            // Prepare request data
+            const requestData = {
+                requirements_content: {
+                    content: this._requirementsContent,
+                    filepath: vscode.workspace.asRelativePath(this._selectedRequirementsFile)
+                },
+                source_files: sourceFilesContent.length > 0 ? sourceFilesContent : undefined,
+                optimization_goals: goals,
+                keep_dependencies: keepDependencies.length > 0 ? keepDependencies : undefined,
+                description: description
+            };
+            
+            // Make API request
+            const response = await axios.post(
+                'https://devexy-backend.azurewebsites.net/requirements/optimize',
+                requestData,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 30000  // 30 seconds timeout
+                }
+            );
+            
+            // Send results to webview
+            this._view?.webview.postMessage({
+                command: 'requirementsOptimizationResults',
+                results: response.data
+            });
+            
+        } catch (error) {
+            let errorMessage = 'Failed to optimize requirements file';
+            if (axios.isAxiosError(error)) {
+                errorMessage = error.response?.data?.detail || error.message;
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            
+            this._view?.webview.postMessage({
+                command: 'updateRequirementsOptimizationStatus',
+                status: 'error',
+                message: errorMessage
+            });
+        }
+    }
+
     private _getHtmlForWebview(webview: vscode.Webview): string {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'sidebar.js'));
         const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'sidebar.css'));
@@ -662,6 +933,100 @@ export class DevexySidebarProvider implements vscode.WebviewViewProvider {
                 <div class="button-group">
                     <button id="apply-button" class="primary-button">Apply Tests</button>
                     <button id="cancel-button" class="secondary-button">Cancel</button>
+                </div>
+            </section>
+            
+            <section id="requirements-section" class="panel">
+                <h2>Requirements Management</h2>
+                <p class="info-text">Analyze and optimize your Python requirements file to improve performance and memory usage.</p>
+                
+                <div class="form-group">
+                    <button id="select-requirements-file-button" class="secondary-button">Select Requirements File</button>
+                    <div id="requirements-file-info" class="file-info">No requirements file selected</div>
+                </div>
+                
+                <div class="form-group">
+                    <button id="select-source-files-for-requirements-button" class="secondary-button">Select Source Files (Optional)</button>
+                    <div id="source-files-for-requirements-list" class="files-list">
+                        <p class="info-text">No source files selected</p>
+                    </div>
+                </div>
+                
+                <div id="requirements-analysis-subsection" class="analysis-subsection">
+                    <h3>Requirements Analysis</h3>
+                    <div class="form-group">
+                        <label for="requirements-analysis-description">Analysis Description (Optional)</label>
+                        <input type="text" id="requirements-analysis-description" placeholder="Analyze requirements file for performance and memory usage">
+                    </div>
+                    <div id="requirements-analysis-status-message" class="status-message"></div>
+                    <div class="button-group">
+                        <button id="analyze-requirements-button" class="primary-button">Analyze Requirements</button>
+                    </div>
+                </div>
+                
+                <div id="requirements-optimization-subsection" class="analysis-subsection">
+                    <h3>Requirements Optimization</h3>
+                    <div class="form-group">
+                        <label>Optimization Goals</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="optimization-goal" value="memory" checked> Memory Usage
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="optimization-goal" value="performance" checked> Performance
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="optimization-goal" value="security" checked> Security
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="keep-dependencies">Keep Dependencies (comma-separated)</label>
+                        <input type="text" id="keep-dependencies" placeholder="fastapi, requests, ...">
+                    </div>
+                    <div class="form-group">
+                        <label for="requirements-optimization-description">Optimization Description (Optional)</label>
+                        <input type="text" id="requirements-optimization-description" placeholder="Optimize for better performance and memory usage">
+                    </div>
+                    <div id="requirements-optimization-status-message" class="status-message"></div>
+                    <div class="button-group">
+                        <button id="optimize-requirements-button" class="primary-button">Optimize Requirements</button>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="requirements-analysis-results-section" class="panel hidden">
+                <h2>Requirements Analysis Results</h2>
+                <div id="requirements-summary" class="requirements-summary"></div>
+                <div id="dependencies-list" class="dependencies-list"></div>
+                <div id="performance-impact" class="performance-impact"></div>
+                <div id="memory-impact" class="memory-impact"></div>
+                <div id="security-concerns" class="security-concerns"></div>
+                <div id="optimization-opportunities" class="optimization-opportunities"></div>
+                <div id="requirements-visualizations" class="requirements-visualizations"></div>
+                <div class="button-group">
+                    <button id="close-requirements-analysis-button" class="secondary-button">Close</button>
+                </div>
+            </section>
+            
+            <section id="requirements-optimization-results-section" class="panel hidden">
+                <h2>Requirements Optimization Results</h2>
+                <div id="optimization-summary" class="optimization-summary"></div>
+                <div class="form-group">
+                    <label for="optimized-content">Optimized Requirements</label>
+                    <div class="code-container">
+                        <pre id="optimized-content" class="code-block"></pre>
+                        <button id="copy-optimized-content-button" class="icon-button" title="Copy to clipboard">
+                            <span class="copy-icon">📋</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="optimization-changes" class="optimization-changes"></div>
+                <div id="optimization-improvements" class="optimization-improvements"></div>
+                <div id="optimization-recommendations" class="optimization-recommendations"></div>
+                <div class="button-group">
+                    <button id="save-optimized-requirements-button" class="primary-button">Save to File</button>
+                    <button id="close-requirements-optimization-button" class="secondary-button">Close</button>
                 </div>
             </section>
             

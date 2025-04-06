@@ -54,6 +54,47 @@
     const applyButton = document.getElementById('apply-button');
     const cancelButton = document.getElementById('cancel-button');
 
+    // Requirements management elements
+    const requirementsSection = document.getElementById('requirements-section');
+    const selectRequirementsFileButton = document.getElementById('select-requirements-file-button');
+    const selectSourceFilesForRequirementsButton = document.getElementById('select-source-files-for-requirements-button');
+    const requirementsFileInfo = document.getElementById('requirements-file-info');
+    const sourceFilesForRequirementsList = document.getElementById('source-files-for-requirements-list');
+    const requirementsAnalysisDescription = document.getElementById('requirements-analysis-description');
+    const analyzeRequirementsButton = document.getElementById('analyze-requirements-button');
+    const requirementsAnalysisStatusMessage = document.getElementById('requirements-analysis-status-message');
+    const requirementsAnalysisResultsSection = document.getElementById('requirements-analysis-results-section');
+    const closeRequirementsAnalysisButton = document.getElementById('close-requirements-analysis-button');
+    const requirementsSummary = document.getElementById('requirements-summary');
+    const dependenciesList = document.getElementById('dependencies-list');
+    const performanceImpact = document.getElementById('performance-impact');
+    const memoryImpact = document.getElementById('memory-impact');
+    const securityConcerns = document.getElementById('security-concerns');
+    const optimizationOpportunities = document.getElementById('optimization-opportunities');
+    const requirementsVisualizations = document.getElementById('requirements-visualizations');
+
+    // Requirements optimization elements
+    const optimizationGoals = document.getElementsByName('optimization-goal');
+    const keepDependenciesInput = document.getElementById('keep-dependencies');
+    const requirementsOptimizationDescription = document.getElementById('requirements-optimization-description');
+    const optimizeRequirementsButton = document.getElementById('optimize-requirements-button');
+    const requirementsOptimizationStatusMessage = document.getElementById('requirements-optimization-status-message');
+    const requirementsOptimizationResultsSection = document.getElementById('requirements-optimization-results-section');
+    const closeRequirementsOptimizationButton = document.getElementById('close-requirements-optimization-button');
+    const optimizationSummary = document.getElementById('optimization-summary');
+    const optimizedContent = document.getElementById('optimized-content');
+    const copyOptimizedContentButton = document.getElementById('copy-optimized-content-button');
+    const optimizationChanges = document.getElementById('optimization-changes');
+    const optimizationImprovements = document.getElementById('optimization-improvements');
+    const optimizationRecommendations = document.getElementById('optimization-recommendations');
+    const saveOptimizedRequirementsButton = document.getElementById('save-optimized-requirements-button');
+
+    // Store requirements data
+    let selectedRequirementsFile = null;
+    let selectedSourceFilesForRequirements = [];
+    let requirementsContent = '';
+    let optimizedRequirementsContent = '';
+
     // Add event listeners for UI interactions
     loginButton.addEventListener('click', () => {
         login();
@@ -116,6 +157,87 @@
         vscode.postMessage({ 
             command: 'updateCriticalityContext',
             context: criticalityContextInput.value.trim()
+        });
+    });
+
+    // Add event listeners for requirements management
+    selectRequirementsFileButton.addEventListener('click', () => {
+        checkLoginAndExecute(() => vscode.postMessage({ command: 'selectRequirementsFile' }));
+    });
+
+    selectSourceFilesForRequirementsButton.addEventListener('click', () => {
+        checkLoginAndExecute(() => vscode.postMessage({ command: 'selectSourceFilesForRequirements' }));
+    });
+
+    analyzeRequirementsButton.addEventListener('click', () => {
+        checkLoginAndExecute(() => {
+            if (!selectedRequirementsFile) {
+                updateRequirementsAnalysisStatus('error', 'Please select a requirements file first');
+                return;
+            }
+            
+            const description = requirementsAnalysisDescription.value.trim() || 
+                'Analyze requirements file for performance and memory usage';
+            
+            vscode.postMessage({ 
+                command: 'analyzeRequirements',
+                description: description 
+            });
+        });
+    });
+
+    optimizeRequirementsButton.addEventListener('click', () => {
+        checkLoginAndExecute(() => {
+            if (!selectedRequirementsFile) {
+                updateRequirementsOptimizationStatus('error', 'Please select a requirements file first');
+                return;
+            }
+            
+            const goals = Array.from(optimizationGoals)
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => checkbox.value);
+            
+            if (goals.length === 0) {
+                updateRequirementsOptimizationStatus('error', 'Please select at least one optimization goal');
+                return;
+            }
+            
+            const keepDependencies = keepDependenciesInput.value
+                .split(',')
+                .map(dep => dep.trim())
+                .filter(dep => dep);
+            
+            const description = requirementsOptimizationDescription.value.trim() || 
+                'Optimize requirements file for better performance and lower memory usage';
+            
+            vscode.postMessage({
+                command: 'optimizeRequirements',
+                goals: goals,
+                keepDependencies: keepDependencies,
+                description: description
+            });
+        });
+    });
+
+    closeRequirementsAnalysisButton.addEventListener('click', () => {
+        vscode.postMessage({ command: 'closeRequirementsAnalysis' });
+    });
+
+    closeRequirementsOptimizationButton.addEventListener('click', () => {
+        vscode.postMessage({ command: 'closeRequirementsOptimization' });
+    });
+
+    copyOptimizedContentButton.addEventListener('click', () => {
+        vscode.postMessage({ 
+            command: 'copyToClipboard',
+            content: optimizedRequirementsContent
+        });
+    });
+
+    saveOptimizedRequirementsButton.addEventListener('click', () => {
+        vscode.postMessage({ 
+            command: 'saveOptimizedRequirements',
+            content: optimizedRequirementsContent
         });
     });
 
@@ -325,6 +447,50 @@
             case 'reportDownloadError':
                 updateCoverageStatus('error', 'Failed to download report: ' + message.error);
                 break;
+
+            case 'updateRequirementsFile':
+                selectedRequirementsFile = message.filepath;
+                requirementsContent = message.content;
+                requirementsFileInfo.textContent = selectedRequirementsFile || 'No requirements file selected';
+                break;
+            
+            case 'updateSourceFilesForRequirements':
+                selectedSourceFilesForRequirements = message.files;
+                updateSourceFilesForRequirementsList(message.files);
+                break;
+            
+            case 'updateRequirementsAnalysisStatus':
+                updateRequirementsAnalysisStatus(message.status, message.message);
+                break;
+            
+            case 'updateRequirementsOptimizationStatus':
+                updateRequirementsOptimizationStatus(message.status, message.message);
+                break;
+            
+            case 'updateRequirementsAnalysisResults':
+                displayRequirementsAnalysisResults(message.results);
+                break;
+            
+            case 'updateRequirementsOptimizationResults':
+                displayRequirementsOptimizationResults(message.results);
+                break;
+            
+            case 'hideRequirementsAnalysisResults':
+                requirementsAnalysisResultsSection.classList.add('hidden');
+                requirementsSection.classList.remove('hidden');
+                break;
+            
+            case 'hideRequirementsOptimizationResults':
+                requirementsOptimizationResultsSection.classList.add('hidden');
+                requirementsSection.classList.remove('hidden');
+                break;
+            
+            case 'clipboardSuccess':
+                updateRequirementsOptimizationStatus('success', 'Copied to clipboard!');
+                setTimeout(() => {
+                    updateRequirementsOptimizationStatus('', '');
+                }, 3000);
+                break;
         }
     }
 
@@ -465,6 +631,58 @@
             noFiles.className = 'info-text';
             noFiles.textContent = 'No files selected';
             listElement.appendChild(noFiles);
+        }
+    }
+
+    function updateSourceFilesForRequirementsList(files) {
+        sourceFilesForRequirementsList.innerHTML = '';
+        
+        if (files && files.length > 0) {
+            files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.textContent = file;
+                sourceFilesForRequirementsList.appendChild(fileItem);
+            });
+        } else {
+            const noFiles = document.createElement('p');
+            noFiles.className = 'info-text';
+            noFiles.textContent = 'No source files selected';
+            sourceFilesForRequirementsList.appendChild(noFiles);
+        }
+    }
+
+    function updateRequirementsAnalysisStatus(status, message) {
+        requirementsAnalysisStatusMessage.innerHTML = message;
+        
+        if (status === 'success') {
+            requirementsAnalysisStatusMessage.className = 'status-message success';
+        } else if (status === 'error') {
+            requirementsAnalysisStatusMessage.className = 'status-message error';
+        } else if (status === 'loading') {
+            requirementsAnalysisStatusMessage.className = 'status-message loading';
+            const spinner = document.createElement('div');
+            spinner.className = 'spinner';
+            requirementsAnalysisStatusMessage.prepend(spinner);
+        } else {
+            requirementsAnalysisStatusMessage.className = 'status-message';
+        }
+    }
+
+    function updateRequirementsOptimizationStatus(status, message) {
+        requirementsOptimizationStatusMessage.innerHTML = message;
+        
+        if (status === 'success') {
+            requirementsOptimizationStatusMessage.className = 'status-message success';
+        } else if (status === 'error') {
+            requirementsOptimizationStatusMessage.className = 'status-message error';
+        } else if (status === 'loading') {
+            requirementsOptimizationStatusMessage.className = 'status-message loading';
+            const spinner = document.createElement('div');
+            spinner.className = 'spinner';
+            requirementsOptimizationStatusMessage.prepend(spinner);
+        } else {
+            requirementsOptimizationStatusMessage.className = 'status-message';
         }
     }
 
